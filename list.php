@@ -1,8 +1,12 @@
 <?php
-require_once './P2H.php';
+require_once './function.php';
+require_once './P2H/P2H.php';
+
 P2H::init();
 
-echo "id:{$_REQUEST['id']}"; //imitate fetch database data
+$gid = get_id('gid');
+$cid = get_id('cid');
 
-P2H::to_html();
+include './templates/list.html';
+P2H::run();
 ?>
