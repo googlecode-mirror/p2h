@@ -1,0 +1,97 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>首页热门关注管理</title>
+<link href='css/base.css' rel='stylesheet' type='text/css'>
+<script src="js/jquery.js" language="javascript" type="text/javascript"></script>
+
+</head>
+<body background='images/allbg.gif' leftmargin='8' topmargin='8'>
+<table width="98%" border="0" align="center" cellpadding="3" cellspacing="1" bgcolor="#D6D6D6">
+  <tr>
+    <td height="19" background="images/tbg.gif" bgcolor="#E7E7E7"> 
+      <table width="96%" border="0" cellspacing="1" cellpadding="1">
+        <tr> 
+          <td width="24%" style="padding-left:10px;">
+		  <a href="<?php echo $pagename; ?>"><b>返回</b></a>
+		  </td>
+         
+        </tr>
+      </table></td>
+</tr>
+<tr>
+    <td height="215" align="center" valign="top" bgcolor="#FFFFFF">
+	<form name="headline" action="<?php echo $pagename.$act; ?>" onSubmit="return checkSubmit();" method="post">
+   <input type="hidden" name="uid" id="uid" value="<?php echo $id; ?>" />
+  <table width="98%" border="0" cellspacing="1" cellpadding="1">
+		 <tr> 
+            <td width="16%" height="30">类别</td>
+            <td width="84%"  style="text-align:left;">
+			<input type="radio" name="cate" value="资讯" <?php if(trim($res['cate'])=='资讯') echo 'checked'; ?> />资讯
+			<input type="radio" name="cate" value="导购" <?php if(trim($res['cate'])=='导购') echo 'checked'; ?> />导购
+			<input type="radio" name="cate" value="评测" <?php if(trim($res['cate'])=='评测') echo 'checked'; ?> />评测
+			<input type="radio" name="cate" value="应用" <?php if(trim($res['cate'])=='应用') echo 'checked'; ?> />应用
+			</td>
+          </tr>
+          <tr> 
+            <td width="16%" height="30">标题</td>
+            <td width="84%"  style="text-align:left;"><input name="title" type="text" id="title" size="16" style="width:200px" value="<?php echo $res['title']; ?>" /></td>
+          </tr>
+	  
+		  <tr> 
+            <td height="30">链接</td>
+            <td style="text-align:left;">
+			<input name="href" type="text" id="href" size="16" style="width:400px" value="<?php echo $res['href']; ?>" />
+            </td>
+          </tr>
+			<tr> 
+            <td height="30">描述</td>
+            <td style="text-align:left;">
+			<input name="desc" type="text" id="desc" size="16" style="width:400px" value="<?php echo $res['desc']; ?>" />
+            </td>
+          </tr>
+		  <tr> 
+            <td height="30">排序</td>
+            <td style="text-align:left;">
+			<input name="ord" type="text" id="ord" style="width:50px" value="<?php echo $res['ord']; ?>" />(越大越靠前)
+            </td>
+          </tr>
+          <tr> 
+            <td height="60"></td>
+            <td><input type="submit" name="Submit" value=" 保存 " class="coolbg np" /></td>
+          </tr>
+        </table>
+      </form>
+	  </td>
+</tr>
+</table>
+</body>
+<script type="text/javascript">
+
+function checkSubmit(){
+	if($("input#cate").val()==""){
+	     alert("类别不能为空");
+	     $("input#cate").focus();
+	     return false;
+     }
+     if($("input#title").val()==""){
+	     alert("标题不能为空");
+	     $("input#title").focus();
+	     return false;
+     }
+	 if($("input#href").val()==""){
+	     alert("链接不能为空");
+	     $("input#href").focus();
+	     return false;
+     }
+	 if($("input#desc").val()==""){
+	     alert("描述不能为空");
+	     $("input#desc").focus();
+	     return false;
+     }
+	  
+	
+}
+</script>
+</html>
