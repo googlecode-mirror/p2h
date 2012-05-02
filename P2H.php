@@ -69,6 +69,12 @@ class P2H {
 	public static $htmlPath = './html';
 	
 	/**
+	 * P2H的路径
+	 * @var unknown_type
+	 */
+	public static $p2hPath = '';
+	
+	/**
 	 * 
 	 * @var String $dir 目录名 例如:D:/www/index/html/list/1.html 里的 list
 	 */
@@ -76,9 +82,15 @@ class P2H {
 	
 	/**
 	 * 
-	 * @var String 模板路径 例如:D:/www/index/templates/index.html
+	 * @var String 模板路径 eg:D:/www/index/templates/index.html
 	 */
 	public static $tplPath = null;	
+	
+	/**
+	 * 
+	 * @var String 模板URL eg:http://www.xda.cn/html/index/index.html
+	 */
+	public static $tplURL = null;
 	
 	/**
 	 * 
@@ -99,7 +111,7 @@ class P2H {
 	public static $timeout = 3600;
 	
 	/**
-	 * 包含ajax请求的html模板
+	 * 带有ajax请求的html模板
 	 * @var String
 	 */
 	private static $ajaxTpl = '<html><head><script type="text/javascript" src="@JQURL@"></script>
@@ -109,7 +121,7 @@ class P2H {
 			"@URL@@QUERY@",
 			function(data){
 				if(data.status==0) top.location.href=(eval(data.url));
-				//else if(data.status==1) top.location.reload();
+				else if(data.status==1) top.location.reload();
 			}
 		);
 	});
@@ -130,7 +142,7 @@ class P2H {
 	 * Init初始化 载入配置 检查更新 打开ob
 	 * @param array $config 配置数组
 	 */
-	public static function Init($config) {
+	public static function init($config) {
 		//$config must be array and not empty
 		self::checkConfig($config); 
 		
@@ -145,7 +157,7 @@ class P2H {
 		foreach($config as $k=>$v) {
 			if(!in_array($k, $vars)) self::debug('unkonw property $'.$k);
 			elseif($v) {
-				if(!is_array($v) && in_array(trim($k), array('rootURL', 'htmlPath'))) {
+				if(!is_array($v) && in_array(trim($k), array('rootURL', 'updateURL', 'htmlPath', 'p2hPath'))) {
 					//ensure that path foot has / and replace \ to /
 					$v = self::repairPath($v);
 				}
@@ -163,27 +175,30 @@ class P2H {
 		//set tplPath
 		$rw = self::joinArgs(array('dir'=>self::$dir, 'query'=>self::$req));
 		self::$tplPath = self::$htmlPath.self::$dir.'/'.$rw.self::$rwEnd;
-//var_dump(self::$tplPath);exit;
+		self::$tplURL = self::$rootURL.basename(self::$htmlPath).'/'.self::$dir.'/'.$rw.self::$rwEnd;
+
 		//set mtime
-		self::$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : time();
+		self::$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : 0;
 
 		//self::update();
 
 		self::ob_end();
-		ob_start();
-		
-		
-	}
-	
-	private static function checkConfig($config) {
-		if(!is_array($config)) 
-			self::debug('$config must be array when '.get_class().' Init($config)');
-		if(empty($config)) 
-			self::debug('$config is empty when '.get_class().' Init($config)');
+		ob_start();		
 	}
 	
 	/**
-	 * 给路径末尾添加文件分隔符
+	 * 检查载入的配置的格式是否正确
+	 * @param Array $config
+	 */
+	private static function checkConfig($config) {
+		if(!is_array($config)) 
+			self::debug('$config must be array when init($config)');
+		if(empty($config)) 
+			self::debug('$config is empty when init($config)');
+	}
+	
+	/**
+	 * 修复路径
 	 * @param String $path
 	 */
 	private static function repairPath($path) {
@@ -193,11 +208,11 @@ class P2H {
 	}
 	
 	/**
-	 * 创建静态页的文件夹
+	 * 创建静态页总的文件夹
 	 */
 	private static function mkHtmlsDir() {
 		if(!isset(self::$htmlPath) || empty(self::$htmlPath))
-			self::debug('please set "htmlPath" to array $config  when '.get_class().' Init($config). eg:E:/html/');
+			self::debug('please set "htmlPath" to array $config  when init($config). eg:E:/html/');
 		
 		if(!is_dir(self::$htmlPath)) {
 			if(false===mkdir(self::$htmlPath, 0777))
@@ -205,6 +220,10 @@ class P2H {
 		}
 	}
 	
+	/**
+	 * 创建栏目静态页的文件夹
+	 * @param String $dir
+	 */
 	private static function mkHtmlDir($dir = '') {
 		$filename = self::$htmlPath;
 		
@@ -294,7 +313,8 @@ class P2H {
 		
 		$rw = self::RWURL($url);
 		$filename = str_replace(self::$rootURL.self::getHtmlsDir().'/', self::$htmlPath, $rw);
-		self::buildAjax($url, $filename);
+		$flag = self::buildAjax($url, $filename);
+		if(false===$flag) self::debug('create ajax failed');
 		return $rw;
 	}
 	
@@ -332,8 +352,13 @@ class P2H {
 		if(!file_exists(self::$tplPath)) return false;
 		
 		$con = file_get_contents(self::$tplPath);
-		return (strstr($con, self::$ajaxFlag) && strpos($con, '</html>'));
+		return (!self::isAjaxFile($con) && strpos($con, '</html>'));
 		
+	}
+	
+	private static function isAjaxFile($con = '') {
+		if(empty($con)) $con = file_get_contents(self::$tplPath);
+		return strstr($con, self::$ajaxFlag);
 	}
 	
 	/**
@@ -366,28 +391,28 @@ class P2H {
 	/**
 	 * 静态页更新
 	 */
-	public  function update() {
+	private function update() {
 		
-		if(!self::is_write_complete()) return true;
-		if(self::is_timeout()) return true;
+		if(!self::isWriteComplete()) return true;
+		if(self::isTimeout()) return true;
 		
-		if(self::$req['from']=='html') exit;	
+		if(self::$req['from']=='html') exit;
 		//Path::g2h();	
 		
 	}
 	
 	/**
-	 * ToHtml
+	 * 生成静态
 	 * @return boolen
-	 */	 
-	public static function ToHtml() {
+	 */
+	public static function toHTML() {
 		if(!self::$isStatic) return;
-				
+		
 		$data = ob_get_contents();
 		$flag = false;
-		//var_dump(self::$tplPath);exit;
+
 		if(self::$minify) {
-			require_once P2H.'HTML.php';
+			require_once self::$p2hPath.'HTML.php';
 			$data = HTML::minify($data);
 		}
 		
@@ -395,18 +420,28 @@ class P2H {
 
 		unset($data);	
 		self::ob_end();
+		//jump if this page is create firsttime
+		if(!file_exists(self::$tplPath) || self::isAjaxFile())
+			self::g2h();
 		
 		if(!isset(self::$req['from']) || !isset(self::$req['jsoncallback'])) return;
 		
-		if(self::$req['from']=='ajax' && $flag!==false) {
-			$arr=array("status"=>"1");
-        	echo self::$req['jsoncallback'].'('.json_encode($arr),')';
+		if(self::$req['from']=='ajax') {
+			if(false!==$flag) $status=array("status"=>"1");
+			else $status = array('status'=>0);
+			
+			echo self::$req['jsoncallback'].'('.json_encode($status),')';
 			exit;
 		}
-		
 		if(self::$req['from']=='html')	 exit;
-		//Path::g2h(); //第一次生成或者从PHP过来的需要跳转
+		
+		
 			
+	}
+	
+	public static function g2h() {
+		header('Location: '.self::$tplURL);
+		exit;
 	}
 	
 	/**
