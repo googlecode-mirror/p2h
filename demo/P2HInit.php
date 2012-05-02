@@ -4,6 +4,8 @@ define('APP', dirname(__FILE__).'/');
 define('P2H', dirname(APP).'/');
 define('M5CPL', 'just a test');
 
+date_default_timezone_set('PRC');
+
 require_once P2H.'P2H.php';
 
 $P2HConfig = array(
@@ -22,9 +24,9 @@ $P2HConfig = array(
 					'args'=>array('id'),
 			),
 	),
-	'rootURL'=>'http://localhost/unbox/ppl/bin/P2H/demos/', //项目URL 如:http://unbox.xda.cn
-	'updateURL'=>'http://localhost/unbox/ppl/bin/P2H/demos/', //静态更新请求的URL
-	
+	'rootURL'=>'http://localhost/p2h/demo/', //项目URL 如:http://unbox.xda.cn
+	'updateURL'=>'http://localhost/p2h/demo/', //静态更新请求的URL
+	'jqueryURL'=>'http://localhost/p2h/jquery-1.2.min.js', //jq url
 	'htmlPath'=>APP.'html', //存放html的目录路径 如:D:/www/index/html/
 	//'rwEnd'=>'.html', //静态文件扩展名
 	//'rwRule'=>'_', //静态文件名的连接符号

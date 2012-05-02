@@ -1,6 +1,6 @@
 var ROOT = 'http://localhost/p2h/';
-var updateURL = ROOT+'P2H.php';
-var jqURL = ROOT+'jquery-1.0.pack.js';
+//var updateURL = ROOT+'P2H.php';
+
 
 update(jqURL);
 

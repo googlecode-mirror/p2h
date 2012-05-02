@@ -1,5 +1,5 @@
 <?php
-class Html {
+class HTML {
 
 	/**
      * "Minify" an HTML page

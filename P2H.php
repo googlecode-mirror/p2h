@@ -102,20 +102,21 @@ class P2H {
 	 * 包含ajax请求的html模板
 	 * @var String
 	 */
-	private static $ajaxTpl = '<html><head><script type="text/javascript" src="http://img2.xda-china.com/android/static/js/jquery-1.2.6.pack.js"></script>
+	private static $ajaxTpl = '<html><head><script type="text/javascript" src="@JQURL@"></script>
 	<script>
 	$(function() {
 		$.getJSON(
-			"@URL@%QUERY%",
+			"@URL@@QUERY@",
 			function(data){
 				if(data.status==0) top.location.href=(eval(data.url));
-				else if(data.status==1) top.location.reload();
+				//else if(data.status==1) top.location.reload();
 			}
 		);
 	});
 	</script>
 	</head><body></body></html>';
 	
+	private static $jqueryURL = 'http://jqueryjs.googlecode.com/files/jquery-1.2.min.js';
 	private static $ajaxFlag = '<!-- ajax page from p2h -->';
 	
 	/**
@@ -278,11 +279,11 @@ class P2H {
 			foreach(self::$pageInfo[$dir]['args'] as $k=>$v) {
 				if(isset($query[$v]))	$querys .= $v.'='.$query[$v].'&';
 			}
-			$querys .= 'from=ajax';
+			$querys .= 'from=ajax&jsoncallback=?';
 		}
 		$url = self::$updateURL.$dir.'.php';
-		$search = array('@URL@', '%QUERY%');
-		$replace = array($url, $querys);
+		$search = array('@JQURL@', '@URL@', '@QUERY@');
+		$replace = array(self::$jqueryURL, $url, $querys);
 		$tpl = self::$ajaxFlag.self::$ajaxTpl;            
 		$data = str_replace($search, $replace, $tpl);
 		return file_put_contents($filename, $data);
@@ -381,23 +382,23 @@ class P2H {
 	 */	 
 	public static function ToHtml() {
 		if(!self::$isStatic) return;
-		
-		if(self::$minify) require_once P2H.'Html.php';
+				
 		$data = ob_get_contents();
 		$flag = false;
 		//var_dump(self::$tplPath);exit;
-		file_put_contents(self::$tplPath, $data);
-		/*
-		if(Html::is_complete($con)) {
-			$flag = file_put_contents(self::$tpl, Html::min($data));
+		if(self::$minify) {
+			require_once P2H.'HTML.php';
+			$data = HTML::minify($data);
 		}
-		*/
+		
+		$flag = file_put_contents(self::$tplPath, $data);
+
 		unset($data);	
 		self::ob_end();
 		
-		if(!isset(self::$req['from'])) return;
+		if(!isset(self::$req['from']) || !isset(self::$req['jsoncallback'])) return;
 		
-		if(self::$req['from']=='ajax' && $flag!==false)  {
+		if(self::$req['from']=='ajax' && $flag!==false) {
 			$arr=array("status"=>"1");
         	echo self::$req['jsoncallback'].'('.json_encode($arr),')';
 			exit;
