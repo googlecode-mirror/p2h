@@ -27,6 +27,12 @@ class P2H {
 	public static $isStatic = true;
 	
 	/**
+	 * 是否压缩html
+	 * @var boolen
+	 */
+	public static $minify = true;
+	
+	/**
 	 * 
 	 * @var 当前应用的URL, 在重写地址的时候用到, 如:http://www.xda.cn 
 	 */
@@ -96,7 +102,7 @@ class P2H {
 	 * 包含ajax请求的html模板
 	 * @var String
 	 */
-	private static $ajaxTpl = '<!-- ajax page from p2h --><html><head><script type="text/javascript" src="http://img2.xda-china.com/android/static/js/jquery-1.2.6.pack.js"></script>
+	private static $ajaxTpl = '<html><head><script type="text/javascript" src="http://img2.xda-china.com/android/static/js/jquery-1.2.6.pack.js"></script>
 	<script>
 	$(function() {
 		$.getJSON(
@@ -110,6 +116,8 @@ class P2H {
 	</script>
 	</head><body></body></html>';
 	
+	private static $ajaxFlag = '<!-- ajax page from p2h -->';
+	
 	/**
 	 * 私有化方法防止new和克隆静态类
 	 */
@@ -122,8 +130,8 @@ class P2H {
 	 * @param array $config 配置数组
 	 */
 	public static function Init($config) {
-		
-		self::checkConfig($config); //$config must be array and not empty
+		//$config must be array and not empty
+		self::checkConfig($config); 
 		
 		//set isStatic to false and return if isStatic equal false
 		if(false===$config['isStatic'] || !isset($config['isStatic'])) {
@@ -144,10 +152,6 @@ class P2H {
 			}
 		}
 		
-		if(isset(self::$req['from']) && self::$req['from']=='html' && self::$req['location']) {
-			$res = json_encode(array('location'=>self::$req['location']));
-			debug::write($res);
-		}
 		//ensure that htmls dir is exists
 		self::mkHtmlsDir();
 		
@@ -160,7 +164,7 @@ class P2H {
 		self::$tplPath = self::$htmlPath.self::$dir.'/'.$rw.self::$rwEnd;
 //var_dump(self::$tplPath);exit;
 		//set mtime
-		//self::$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : time();
+		self::$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : time();
 
 		//self::update();
 
@@ -260,6 +264,8 @@ class P2H {
 	}
 	
 	private static function buildAjax($url, $filename) {
+		if(is_file($filename)) return;
+		
 		$dq = self::dq($url);
 		$dir = $dq['dir'];
 		$query = $dq['query'];
@@ -270,14 +276,15 @@ class P2H {
 		if(is_array($query) && !empty($query)) {
 			$querys = '?';
 			foreach(self::$pageInfo[$dir]['args'] as $k=>$v) {
-				if($query[$v])	$querys .= $v.'='.$query[$v].'&';
+				if(isset($query[$v]))	$querys .= $v.'='.$query[$v].'&';
 			}
 			$querys .= 'from=ajax';
 		}
 		$url = self::$updateURL.$dir.'.php';
 		$search = array('@URL@', '%QUERY%');
-		$replace = array($url, $querys);                        
-		$data = str_replace($search, $replace, self::$ajaxTpl);
+		$replace = array($url, $querys);
+		$tpl = self::$ajaxFlag.self::$ajaxTpl;            
+		$data = str_replace($search, $replace, $tpl);
 		return file_put_contents($filename, $data);
 	}
 	
@@ -294,7 +301,7 @@ class P2H {
 	 *
 	 * 设置超时时间
 	 */
-	public function set_timeout() {
+	public function setTimeout() {
 		if(strpos(self::$tpl, 'index.html') === TRUE)
 			self::$timeout = INDEX_STATIC_TIME;
 		else 
@@ -305,7 +312,7 @@ class P2H {
 	 * 静态页是否超过有效期
 	 * @return boolen
 	 */
-	public function is_timeout() {
+	public function isTimeout() {
 		if(trim(self::$req['fresh'])==='true') return true; //及时更新
 		
 		self::set_timeout();
@@ -317,17 +324,14 @@ class P2H {
 	}
 	
 	/**
-	 * 检查是否已经完成静态化写入
+	 * 检查静态文件是否写入完整
 	 * @return boolen
 	 */
-	public function is_write_complete() {
+	public function isWriteComplete() {
+		if(!file_exists(self::$tplPath)) return false;
 		
-		if(!file_exists(self::$tpl)) return false;
-		
-		$con = file_get_contents(self::$tpl);
-		if(false===strstr($con, '<!-- ajax page from p2h -->')) return false;
-		
-		return Html::is_complete($con);
+		$con = file_get_contents(self::$tplPath);
+		return (strstr($con, self::$ajaxFlag) && strpos($con, '</html>'));
 		
 	}
 	
@@ -367,7 +371,7 @@ class P2H {
 		if(self::is_timeout()) return true;
 		
 		if(self::$req['from']=='html') exit;	
-		Path::g2h();	
+		//Path::g2h();	
 		
 	}
 	
@@ -378,6 +382,7 @@ class P2H {
 	public static function ToHtml() {
 		if(!self::$isStatic) return;
 		
+		if(self::$minify) require_once P2H.'Html.php';
 		$data = ob_get_contents();
 		$flag = false;
 		//var_dump(self::$tplPath);exit;
