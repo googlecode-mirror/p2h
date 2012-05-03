@@ -424,8 +424,6 @@ class P2H {
 		if(isset(self::$pageInfo[self::$dir]) && isset(self::$pageInfo[self::$dir]['timeout'])) 
 			self::$timeout = intval(self::$pageInfo[self::$dir]['timeout']);
 		
-		file_put_contents('./log.txt', self::$tplURL.'--timeout:'.self::$timeout.'--mtime:'.date('Y-m-d H:i:s', self::$mtime));
-
 		$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : 0;
 		if(time() - $mtime > self::$timeout) return true;
 		else return false;		
