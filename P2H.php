@@ -128,8 +128,23 @@ class P2H {
 	</script>
 	</head><body></body></html>';
 	
+	/**
+	 * jquery url
+	 * @var String
+	 */
 	private static $jqueryURL = 'http://jqueryjs.googlecode.com/files/jquery-1.2.min.js';
+	
+	/**
+	 * ajax文件标志
+	 * @var String
+	 */
 	private static $ajaxFlag = '<!-- ajax page from p2h -->';
+	
+	/**
+	 * 更新静态页的JSURL
+	 * @var String
+	 */
+	public static $P2HJSURL = null;
 	
 	/**
 	 * 私有化方法防止new和克隆静态类
@@ -153,17 +168,7 @@ class P2H {
 		}
 		
 		//init config
-		$vars = array_keys(self::getVars());
-		foreach($config as $k=>$v) {
-			if(!in_array($k, $vars)) self::debug('unkonw property $'.$k);
-			elseif($v) {
-				if(!is_array($v) && in_array(trim($k), array('rootURL', 'updateURL', 'htmlPath', 'p2hPath'))) {
-					//ensure that path foot has / and replace \ to /
-					$v = self::repairPath($v);
-				}
-				self::$$k = $v;
-			}
-		}
+		self::initConfig($config);
 		
 		//ensure that htmls dir is exists
 		self::mkHtmlsDir();
@@ -180,10 +185,24 @@ class P2H {
 		//set mtime
 		self::$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : 0;
 
-		//self::update();
+		self::update();
 
 		self::ob_end();
 		ob_start();		
+	}
+	
+	public static function initConfig($config) {
+		$vars = array_keys(self::getVars());
+		foreach($config as $k=>$v) {
+			if(!in_array($k, $vars)) self::debug('unkonw property $'.$k);
+			elseif($v) {
+				if(!is_array($v) && in_array(trim($k), array('rootURL', 'updateURL', 'htmlPath', 'p2hPath'))) {
+					//ensure that path foot has / and replace \ to /
+					$v = self::repairPath($v);
+				}
+				self::$$k = $v;
+			}
+		}
 	}
 	
 	/**
@@ -249,6 +268,27 @@ class P2H {
 		if(empty($rw)) $rw = 'index';
 		$htmlDir = basename(self::$htmlPath);
 		return self::$rootURL.$htmlDir.'/'.$dir.'/'.$rw.self::$rwEnd;
+	}
+	
+	/**
+	 * 返回重写之前的地址
+	 * @param String $url
+	 * @return String 
+	 */
+	public static function UnRWURL($url) {
+		$dir = basename(dirname($url));
+		$argstr = basename($url, self::$rwEnd);
+		$args = explode(self::$rwRule, $argstr);
+		$rw = '';
+		
+		foreach(self::$pageInfo[$dir]['args'] as $k=>$v) {
+			if(isset($args[$k]) && !empty($args[$k]))	$rw .= $v.'='.$args[$k].'&';
+		}
+		
+		$rw = rtrim($rw, '&');
+		$query = empty($rw) ? '' : '?'.$rw;
+		
+		return self::$rootURL.$dir.'.php'.$query;
 	}
 	
 	private static function joinArgs($dq) {
@@ -322,33 +362,30 @@ class P2H {
 	 *
 	 * 设置超时时间
 	 */
-	public function setTimeout() {
-		if(strpos(self::$tpl, 'index.html') === TRUE)
-			self::$timeout = INDEX_STATIC_TIME;
-		else 
-			self::$timeout = HTIME;
+	public static function setTimeout() {
+		if(isset(self::$pageInfo[self::$dir]) && isset(self::$pageInfo[self::$dir]['timeout'])) 
+			self::$timeout = intval(self::$pageInfo[self::$dir]['timeout']);
 	}
 	
 	/** 
 	 * 静态页是否超过有效期
 	 * @return boolen
 	 */
-	public function isTimeout() {
-		if(trim(self::$req['fresh'])==='true') return true; //及时更新
+	public static function isTimeout() {
+		if(isset(self::$req['fresh']) && trim(self::$req['fresh'])==='true')
+			return true; //及时更新
 		
-		self::set_timeout();
-		
-		$D = time() - self::$ctime;
-		if($D > self::$timeout) 	return true;	
-		else return false;
-		
+		self::setTimeout();
+		//file_put_contents('./log.txt', self::$tplURL.'--timeout:'.self::$timeout.'--mtime:'.date('Y-m-d H:i:s', self::$mtime));
+		if(time() - self::$mtime > self::$timeout) return true;
+		else return false;		
 	}
 	
 	/**
 	 * 检查静态文件是否写入完整
 	 * @return boolen
 	 */
-	public function isWriteComplete() {
+	public static function isWriteComplete() {
 		if(!file_exists(self::$tplPath)) return false;
 		
 		$con = file_get_contents(self::$tplPath);
@@ -356,7 +393,7 @@ class P2H {
 		
 	}
 	
-	private static function isAjaxFile($con = '') {
+	public static function isAjaxFile($con = '') {
 		if(empty($con)) $con = file_get_contents(self::$tplPath);
 		return strstr($con, self::$ajaxFlag);
 	}
@@ -391,14 +428,11 @@ class P2H {
 	/**
 	 * 静态页更新
 	 */
-	private function update() {
+	private static function update() {
 		
-		if(!self::isWriteComplete()) return true;
-		if(self::isTimeout()) return true;
+		if(!self::isWriteComplete() || self::isTimeout()) return true;
 		
-		if(self::$req['from']=='html') exit;
-		//Path::g2h();	
-		
+		exit;		
 	}
 	
 	/**
@@ -418,29 +452,27 @@ class P2H {
 		
 		$flag = file_put_contents(self::$tplPath, $data);
 
-		unset($data);	
+		unset($data);
 		self::ob_end();
-		//jump if this page is create firsttime
-		if(!file_exists(self::$tplPath) || self::isAjaxFile())
-			self::g2h();
-		
-		if(!isset(self::$req['from']) || !isset(self::$req['jsoncallback'])) return;
-		
-		if(self::$req['from']=='ajax') {
-			if(false!==$flag) $status=array("status"=>"1");
-			else $status = array('status'=>0);
-			
-			echo self::$req['jsoncallback'].'('.json_encode($status),')';
-			exit;
-		}
-		if(self::$req['from']=='html')	 exit;
-		
-		
-			
+	
+		if(isset(self::$req['from']) && isset(self::$req['jsoncallback'])) {
+			if(self::$req['from']=='ajax') {
+				if(false!==$flag) $status=array("status"=>"1");
+				else $status = array('status'=>0);
+				
+				echo self::$req['jsoncallback'].'('.json_encode($status),')';
+				exit;
+			}			
+		}else self::g2h();
+				
 	}
 	
-	public static function g2h() {
-		header('Location: '.self::$tplURL);
+	/**
+	 * 跳转
+	 */
+	public static function g2h($url = '') {
+		if(trim($url)=='') $url = self::$tplURL;
+		header('Location: '.$url);
 		exit;
 	}
 	
@@ -449,6 +481,11 @@ class P2H {
 	 */
 	private static function ob_end() {
 		if(ob_get_length() > 0) ob_end_clean();
+	}
+	
+	public static function loadScript() {
+		if(self::$isStatic)
+			echo '<script type="text/javascript" src="'.self::$P2HJSURL.'"></script>';
 	}
 	
 	/**
@@ -461,11 +498,19 @@ class P2H {
 		exit(get_class().' ERROR: '.$msg);
 	}
 	
+	public static function get($name) {
+		$name = trim($name);
+		if(empty($name)) self::debug('preperty name is empty');
+		if(!in_array($name, array_values(self::getVars())))
+			self::debug('unknow preperty $'.$name);
+		else return self::$$name;
+	}
+	
 	/**
 	 * 返回由类的默认属性组成的数组
 	 * @return Array
 	 */
-	private static function getVars() {
+	public static function getVars() {
 		return get_class_vars(get_class());
 	}
 		

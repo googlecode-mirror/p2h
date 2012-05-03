@@ -1,8 +1,11 @@
-<html>
+<!DOCTYPE html><html><head><meta
+charset="utf-8">
 <head></head>
 <body>
-<?php echo $time; ?>
-<a href="<?php echo P2H::RW('./index.php?id=3'); ?>">rw_url</a>
+<p>静态有效时间是<?php echo P2H::get('timeout'); ?>s</p>
+<p>可以刷新页面查看这里的时间有什么变化：</p>
+<p><?php echo $time; ?></p>
+<a href="<?php echo P2H::RW('./index.php?cid=3&pag=11'); ?>">这是重写过的URL</a>
 </body>
-<script type="text/javascript" src="http://localhost/p2h/P2H.js"></script>
+<?php echo P2H::loadScript(); ?>
 </html>
