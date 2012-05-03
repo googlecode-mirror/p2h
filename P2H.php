@@ -192,16 +192,15 @@ class P2H {
 	}
 	
 	public static function initConfig($config) {
-		$vars = array_keys(self::getVars());
 		foreach($config as $k=>$v) {
-			if(!in_array($k, $vars)) self::debug('unkonw property $'.$k);
-			elseif($v) {
-				if(!is_array($v) && in_array(trim($k), array('rootURL', 'updateURL', 'htmlPath', 'p2hPath'))) {
-					//ensure that path foot has / and replace \ to /
-					$v = self::repairPath($v);
-				}
-				self::$$k = $v;
-			}
+			self::set($k, $v);
+			
+			//ensure that path foot has / and replace \ to /
+			if(!is_array($v) && in_array(trim($k), array('rootURL', 'updateURL', 'htmlPath', 'p2hPath')))				
+				$v = self::repairPath($v);
+			
+			self::$$k = $v;
+			
 		}
 	}
 	
@@ -498,12 +497,20 @@ class P2H {
 		exit(get_class().' ERROR: '.$msg);
 	}
 	
-	public static function get($name) {
-		$name = trim($name);
-		if(empty($name)) self::debug('preperty name is empty');
-		if(!in_array($name, array_values(self::getVars())))
-			self::debug('unknow preperty $'.$name);
-		else return self::$$name;
+	public static function get($key) {
+		$key = trim($key);
+		if(empty($key)) self::debug('preperty value is empty');
+		if(!in_array($key, array_keys(self::getVars())))
+			self::debug('unknow preperty $'.$key);
+		else return self::$$key;
+	}
+	
+	public static function set($key, $value) {
+		$key = trim($key);
+		if(empty($key)) self::debug('preperty $'.$key."'s value can not be empty");
+		if(!in_array($key, array_keys(self::getVars())))
+			self::debug('unknow preperty $'.$key);
+		else self::$$key = $key;
 	}
 	
 	/**
