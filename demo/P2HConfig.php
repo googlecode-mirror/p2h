@@ -1,4 +1,6 @@
 <?php
+error_reporting(-1);
+define('M5CPL', 'just a test');
 $P2HConfig = array(
 	'isStatic'=>true, //是否生成静态
 	'debug'=>true, //是否开启调试 开启则会把错误打印在屏幕上
@@ -6,7 +8,7 @@ $P2HConfig = array(
 	'pageInfo'=>array(
 			//index.php
 			'index'=>array(
-					'timeout'=>60,
+					'timeout'=>10,
 					'args'=>array('cid', 'pag'),
 			),
 			//list.php
@@ -15,12 +17,12 @@ $P2HConfig = array(
 					'args'=>array('cid', 'gid', 'pag'),
 			),
 	),
-	'rootURL'=>'http://localhost/zhupp_google/p2h/demo/', //项目URL 如:http://unbox.xda.cn
-	'updateURL'=>'http://localhost/zhupp_google/p2h/demo/', //静态更新请求的URL
+	'rootURL'=>'http://localhost/p2h/demo/', //项目URL 如:http://unbox.xda.cn
+	//'updateURL'=>'http://localhost/p2h/demo/', //静态更新请求的URL
+	'appPath'=>dirname(__FILE__), //项目路径
 	'p2hPath'=>dirname(dirname(__FILE__)).'/', 
-	'jqueryURL'=>'http://localhost/zhupp_google/p2h/jquery-1.2.min.js', //jq url
-	'P2HJSURL'=>'http://localhost/zhupp_google/p2h/P2H.js', //更新静态页的JSURL
-	'htmlPath'=>dirname(__FILE__).'/html', //存放html的目录路径 如:D:/www/index/html/
+	'jqueryURL'=>'http://localhost/p2h/jquery-1.2.min.js', //jq url js发送ajax请求的时候用到
+	'htmls'=>'html', //存放html的文件夹的名字 这个文件夹放在app根目录下
 	//'rwEnd'=>'.html', //静态文件扩展名
 	//'rwRule'=>'_', //静态文件名的连接符号
 	'req'=>$_REQUEST, //$_REQUEST数组

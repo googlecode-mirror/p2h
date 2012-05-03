@@ -1,7 +1,4 @@
 <?php
-error_reporting(-1);
-
-define('M5CPL', 'just a test');
 require_once './P2HConfig.php';
 date_default_timezone_set('PRC');
 

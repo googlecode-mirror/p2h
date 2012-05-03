@@ -1,34 +1,21 @@
-var JQURL = 'http://localhost/zhupp_google/p2h/jquery-1.2.min.js';
-var updateURL = 'http://localhost/zhupp_google/p2h/demo/P2HUpdate.php';
-main(JQURL, updateURL);
+<script type="text/javascript">
+main('@JQURL@', '@phpURL@');
 
-function main(JQURL, updateURL) {
+function main(JQURL, phpURL) {
 	if(typeof jQuery==='undefined') {
 		loadScript(JQURL, function(){
-			ajax(updateURL);
+			ajax(phpURL);
 		});
 	}else{
 		$(function(){
-			ajax(updateURL);
+			ajax(phpURL);
 		});
 	}	
 }
 
-function getFilename() {
-	var path = window.location.pathname.split('/');
-	/* path[0] is empty path[1] is html dir name  */
-	var dir = '';
-	var dir = path[path.length-2];
-
-	if(dir == "html" || dir == "" || path.length < 2) {
-		dir = 'index';
-	}
-	return dir+'.php';
-}
-
-function ajax(updateURL) {
+function ajax(phpURL) {
 	$.getJSON(
-			updateURL+"?from=html&jsoncallback=?&location="+window.location,
+			phpURL+"?from=html&jsoncallback=?&location="+window.location,
 			function(data) {
 				if(data.status) alert(data.status);
 			}
@@ -49,3 +36,4 @@ function loadScript(url,callback) {
     script.src=url;
     document.getElementsByTagName("head")[0].appendChild(script);
 }
+</script>

@@ -5,7 +5,9 @@ charset="utf-8">
 <p>静态有效时间是<?php echo P2H::get('timeout'); ?>s</p>
 <p>可以刷新页面查看这里的时间有什么变化：</p>
 <p><?php echo $time; ?></p>
-<a href="<?php echo P2H::RW('./list.php?cid=3&gid=1&pag=11'); ?>">这是重写过的URL</a>
+<p><a href="<?php echo P2H::RW('./list.php?cid=3&gid=1&pag=11'); ?>">这是重写过的URL</a></p>
+<p><a href="<?php echo P2H::RW('./index.php'); ?>">这是重写过的URL</a></p>
+<p><a href="<?php echo P2H::RW('./index.php?cid=3&pag=11'); ?>">这是重写过的URL</a></p>
 </body>
 <?php echo P2H::loadScript(); ?>
 </html>

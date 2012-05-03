@@ -5,7 +5,19 @@ defined('M5CPL') or die('Access deny!');
 /**
  * 
  * @author zhupp 20120428 12:43
- * @desc php to html
+ * @desc php to html 
+ * 通过ob缓冲把内容写到文件的形式实现静态, 详细流程如下:
+ * 1.配置文件有个数组保存着一些必要的信息, 如合法参数数组, 静态有效期, 各种路径...
+ * 2.在项目的各个php文件中通过P2H::init($config)
+ *    把第一步所描述的数组载入并赋值给相应属性,
+ * 	   在这个过程中, P2H得到该页的静态页路径、有效期...
+ * 	   这个过程还会调用P2H::checkUpdate()去检查静态页是否存在或者已经过时需要更新,
+ *    如果不需要更新则直接在这里终止程序运行, 这也是init最好写在文件顶部的缘故
+ * 3.模板中通过P2H::RW()把路径重写成静态地址并生成对应的带有ajax的伪静态文件
+ * 4.在包含模板之后调用P2H::toHTML()把缓冲内容写到静态文件里并跳转
+ * 5.当点击模板上重写过的地址时, 实际上访问的是一个带有ajax请求的伪静态文件,
+ *    此时如果返回写入静态文件成功的状态吗, 重新载入该页面而达到展现, 更新亦是如此
+ * 
  * @example
  * P2H::Init($config);
  * include './templets/list_index.html';
@@ -63,10 +75,16 @@ class P2H {
 	private static $pageInfo = array();
 	
 	/**
-	 *
-	 * @var String 存放html的目录路径 如:D:/www/index/html/
+	 * 项目的路径
+	 * @var String
 	 */
-	public static $htmlPath = './html';
+	private static $appPath = './';
+	
+	/**
+	 *
+	 * @var String 存放html的文件夹的名字 eg:htmls
+	 */
+	public static $htmls = 'html';
 	
 	/**
 	 * P2H的路径
@@ -75,38 +93,32 @@ class P2H {
 	public static $p2hPath = '';
 	
 	/**
-	 * 
-	 * @var String $dir 目录名 例如:D:/www/index/html/list/1.html 里的 list
+	 * 目录名 例如:D:/www/index/html/list/1.html 里的 list
+	 * @var String $dir
 	 */
 	public static $dir = null;
 	
 	/**
-	 * 
-	 * @var String 模板路径 eg:D:/www/index/templates/index.html
+	 * 模板路径 eg:D:/www/index/templates/index.html
+	 * @var String
 	 */
 	public static $tplPath = null;	
 	
 	/**
-	 * 
-	 * @var String 模板URL eg:http://www.xda.cn/html/index/index.html
+	 * 模板URL eg:http://www.xda.cn/html/index/index.html
+	 * @var String
 	 */
 	public static $tplURL = null;
 	
 	/**
-	 * 
-	 * @var Array $_REQUEST数组
+	 * $_REQUEST数组
+	 * @var Array
 	 */
 	public static $req = null;
 	
 	/**
 	 * 
-	 * @var Int(10) 当前静态页修改时间
-	 */
-	public static $mtime = 0;
-	
-	/**
-	 * 
-	 * @var 静态有效时间(秒) 默认1小时
+	 * @var 当前静态页有效时间(秒) 默认1小时
 	 */
 	public static $timeout = 3600;
 	
@@ -141,12 +153,6 @@ class P2H {
 	private static $ajaxFlag = '<!-- ajax page from p2h -->';
 	
 	/**
-	 * 更新静态页的JSURL
-	 * @var String
-	 */
-	public static $P2HJSURL = null;
-	
-	/**
 	 * 私有化方法防止new和克隆静态类
 	 */
 	private function __construct(){}
@@ -179,24 +185,72 @@ class P2H {
 		
 		//set tplPath
 		$rw = self::joinArgs(array('dir'=>self::$dir, 'query'=>self::$req));
-		self::$tplPath = self::$htmlPath.self::$dir.'/'.$rw.self::$rwEnd;
-		self::$tplURL = self::$rootURL.basename(self::$htmlPath).'/'.self::$dir.'/'.$rw.self::$rwEnd;
+		$footer = self::$htmls.'/'.self::$dir.'/'.$rw.self::$rwEnd;
+		self::$tplPath = self::$appPath.$footer;
+		self::$tplURL = self::$rootURL.$footer;
 
-		//set mtime
-		self::$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : 0;
-
-		self::update();
+		self::checkUpdate();
 
 		self::ob_end();
 		ob_start();		
 	}
 	
+	/**
+	 * 生成静态
+	 * @return boolen
+	 */
+	public static function toHTML() {
+		if(!self::$isStatic) return;
+	
+		$data = ob_get_contents();
+		$flag = false;
+	
+		if(self::$minify) {
+			require_once self::$p2hPath.'HTML.php';
+			$data = HTML::minify($data);
+		}
+	
+		$flag = file_put_contents(self::$tplPath, $data);
+	
+		unset($data);
+		self::ob_end();
+	
+		if(isset(self::$req['from']) && isset(self::$req['jsoncallback'])) {
+			if(self::$req['from']=='ajax') {
+				if(false!==$flag) $status=array("status"=>"1");
+				else $status = array('status'=>0);
+	
+				echo self::$req['jsoncallback'].'('.json_encode($status),')';
+				exit;
+			}
+		}else self::g2h();
+	
+	}
+	
+	/**
+	 * 发送更新请求
+	 */
+	public static function update() {
+		if(!isset(self::$req['location']) || trim(self::$req['location'])=='')
+			die(json_encode(array('status'=>0)));
+		fopen(str_replace(self::$rootURL, self::$updateURL, self::UnRWURL(self::$req['location'])), 'r');
+	}
+	
+	/**
+	 * 载入配置文件
+	 * @param Array $config
+	 */
 	public static function initConfig($config) {
+		//如果没有指定updateURL, 那么默认和rootURL是一样的
+		if(!isset($config['updateURL']) && isset($config['rootURL']))
+			 self::$updateURL = $config['rootURL'];
+		
 		foreach($config as $k=>$v) {
 			self::set($k, $v);
 			
 			//ensure that path foot has / and replace \ to /
-			if(!is_array($v) && in_array(trim($k), array('rootURL', 'updateURL', 'htmlPath', 'p2hPath')))				
+			$needrepair = array('rootURL', 'updateURL', 'appPath', 'p2hPath');
+			if(!is_array($v) && in_array(trim($k), $needrepair))				
 				$v = self::repairPath($v);
 			
 			self::$$k = $v;
@@ -226,28 +280,30 @@ class P2H {
 	}
 	
 	/**
-	 * 创建静态页总的文件夹
+	 * 创建静态页总的文件夹 eg:E:/app/htmls/
 	 */
 	private static function mkHtmlsDir() {
-		if(!isset(self::$htmlPath) || empty(self::$htmlPath))
-			self::debug('please set "htmlPath" to array $config  when init($config). eg:E:/html/');
+		if(!isset(self::$htmls) || empty(self::$htmls))
+			self::debug('please set "htmls" to array $config  when init($config). eg:E:/html/');
 		
-		if(!is_dir(self::$htmlPath)) {
-			if(false===mkdir(self::$htmlPath, 0777))
-				self::debug("mkdir failed: ".self::$htmlPath);
+		$dirname = self::$appPath.self::$htmls;
+		
+		if(!is_dir($dirname)) {
+			if(false===mkdir($dirname, 0777))
+				self::debug("mkdir failed: ".$dirname);
 		}
 	}
 	
 	/**
-	 * 创建栏目静态页的文件夹
+	 * 创建栏目静态页的文件夹 eg:E:/app/htmls/list/
 	 * @param String $dir
 	 */
 	private static function mkHtmlDir($dir = '') {
-		$filename = self::$htmlPath;
+		$filename = self::$appPath.self::$htmls.'/';
 		
 		if(!empty($dir))	$filename .= $dir;
 		else $filename .= self::$dir;
-		
+
 		if(!is_dir($filename)) mkdir($filename, 0777);
 	}
 	
@@ -265,8 +321,8 @@ class P2H {
 		// rw args str
 		$rw = self::joinArgs($dq);
 		if(empty($rw)) $rw = 'index';
-		$htmlDir = basename(self::$htmlPath);
-		return self::$rootURL.$htmlDir.'/'.$dir.'/'.$rw.self::$rwEnd;
+
+		return self::$rootURL.self::$htmls.'/'.$dir.'/'.$rw.self::$rwEnd;
 	}
 	
 	/**
@@ -308,7 +364,8 @@ class P2H {
 		$urlinfo = parse_url($url);
 		
 		$query = '';
-		parse_str($urlinfo['query'], $query);
+		if(isset($urlinfo['query']) && !empty($urlinfo['query']))
+			parse_str($urlinfo['query'], $query);
 		
 		return array('dir'=>basename($urlinfo['path'], '.php'), 'query'=>$query);
 	}
@@ -318,9 +375,6 @@ class P2H {
 		return basename($urlinfo['path'], '.php');
 	}
 	
-	private static function getHtmlsDir() {
-		return basename(self::$htmlPath);
-	}
 	
 	private static function buildAjax($url, $filename) {
 		if(is_file($filename)) return;
@@ -351,19 +405,10 @@ class P2H {
 		if(!self::$isStatic) return $url;
 		
 		$rw = self::RWURL($url);
-		$filename = str_replace(self::$rootURL.self::getHtmlsDir().'/', self::$htmlPath, $rw);
+		$filename = str_replace(self::$rootURL, self::$appPath, $rw);
 		$flag = self::buildAjax($url, $filename);
 		if(false===$flag) self::debug('create ajax failed');
 		return $rw;
-	}
-	
-	/**
-	 *
-	 * 设置超时时间
-	 */
-	public static function setTimeout() {
-		if(isset(self::$pageInfo[self::$dir]) && isset(self::$pageInfo[self::$dir]['timeout'])) 
-			self::$timeout = intval(self::$pageInfo[self::$dir]['timeout']);
 	}
 	
 	/** 
@@ -371,12 +416,18 @@ class P2H {
 	 * @return boolen
 	 */
 	public static function isTimeout() {
+		//及时更新 用法:http://localhost/app/index.php?cid=2&fresh=true
 		if(isset(self::$req['fresh']) && trim(self::$req['fresh'])==='true')
-			return true; //及时更新
+			return true;
 		
-		self::setTimeout();
-		//file_put_contents('./log.txt', self::$tplURL.'--timeout:'.self::$timeout.'--mtime:'.date('Y-m-d H:i:s', self::$mtime));
-		if(time() - self::$mtime > self::$timeout) return true;
+		//设置超时时间
+		if(isset(self::$pageInfo[self::$dir]) && isset(self::$pageInfo[self::$dir]['timeout'])) 
+			self::$timeout = intval(self::$pageInfo[self::$dir]['timeout']);
+		
+		file_put_contents('./log.txt', self::$tplURL.'--timeout:'.self::$timeout.'--mtime:'.date('Y-m-d H:i:s', self::$mtime));
+
+		$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : 0;
+		if(time() - $mtime > self::$timeout) return true;
 		else return false;		
 	}
 	
@@ -398,7 +449,7 @@ class P2H {
 	}
 	
 	/**
-	 * 检查变量是否有效 若无效 不更新HTML
+	 * 检查变量是否有效 若无效 不更新静态页
 	 * @param mixed $var
 	 */
 	public static function check_var($var) {
@@ -425,45 +476,15 @@ class P2H {
 	}
 	
 	/**
-	 * 静态页更新
+	 * 检查静态页更新
+	 * 这个方法在init里头调用了, 所以不需要更新的时候要直接exit终止掉
+	 * 不然会一直走完整个php文件直到末尾的获得ob缓冲并重新生成静态
 	 */
-	private static function update() {
+	private static function checkUpdate() {
 		
 		if(!self::isWriteComplete() || self::isTimeout()) return true;
-		
-		exit;		
-	}
-	
-	/**
-	 * 生成静态
-	 * @return boolen
-	 */
-	public static function toHTML() {
-		if(!self::$isStatic) return;
-		
-		$data = ob_get_contents();
-		$flag = false;
-
-		if(self::$minify) {
-			require_once self::$p2hPath.'HTML.php';
-			$data = HTML::minify($data);
-		}
-		
-		$flag = file_put_contents(self::$tplPath, $data);
-
-		unset($data);
-		self::ob_end();
-	
-		if(isset(self::$req['from']) && isset(self::$req['jsoncallback'])) {
-			if(self::$req['from']=='ajax') {
-				if(false!==$flag) $status=array("status"=>"1");
-				else $status = array('status'=>0);
-				
-				echo self::$req['jsoncallback'].'('.json_encode($status),')';
-				exit;
-			}			
-		}else self::g2h();
-				
+		exit;
+		//exit(json_encode(array('status'=>'still fresh')));		
 	}
 	
 	/**
@@ -483,8 +504,18 @@ class P2H {
 	}
 	
 	public static function loadScript() {
-		if(self::$isStatic)
-			echo '<script type="text/javascript" src="'.self::$P2HJSURL.'"></script>';
+		if(!self::$isStatic) return;
+		
+		//更新静态页的JS, 模板是P2H.php同级目录下的P2H.JS
+		$filename = self::$p2hPath.'P2H.js';
+		if(!is_file($filename)) self::debug('can not find P2H.js file');
+		$data = file_get_contents(self::$p2hPath.'P2H.js');
+		if(empty($data)) self::$debug('P2H.js is empty');
+		
+		$search = array('@JQURL@', '@phpURL@');
+		$replace = array(self::$jqueryURL, self::$rootURL.'P2HUpdate.php');
+		$data = str_replace($search, $replace, $data);
+		echo $data;
 	}
 	
 	/**
