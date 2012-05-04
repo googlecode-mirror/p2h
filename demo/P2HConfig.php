@@ -48,7 +48,7 @@ $P2HConfig = array(
 	),
 
 	//jq url js发送ajax请求的时候用到 默认为jq官网链接
-	'jqueryURL'=>'http://localhost/zhupp_google/p2h/jquery-1.2.min.js', 
+	'jqueryURL'=>'http://localhost/zhupp_google/p2h/plugin/jquery-1.2.min.js', 
 		
 	//存放html的文件夹的名字 这个文件夹放在app根目录下 默认为html
 	//'htmls'=>'html', 
