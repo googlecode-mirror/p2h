@@ -21,10 +21,10 @@ $P2HConfig = array(
 	'appPath'=>dirname(__FILE__), 
 		
 	//p2h路径
-	'p2hPath'=>dirname(dirname(__FILE__)),
+	'p2hPath'=>dirname(dirname(dirname(__FILE__))),
 		
 	//项目URL 如:http://unbox.xda.cn
-	'rootURL'=>'http://localhost/p2h/demo', 
+	'rootURL'=>'http://localhost/p2h/demo/work/', 
 	
 	//请求静态更新的URL 如果和rootURL地址一样可注释
 	//'updateURL'=>'http://localhost/p2h/demo/', 
