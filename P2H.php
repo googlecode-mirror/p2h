@@ -27,10 +27,20 @@ defined('M5CPL') or die('Access deny!');
 class P2H {
 	
 	/**
-	 * 
-	 * @var boolen 是否开启调试模式
+	 * 调试模式:
+	 * 0关闭调试
+	 * 1开启调试并把错误打印在屏幕上
+	 * 2开启调试并把错误保存在文件中 文件保存在log/p2herror.txt
+	 * @var int
 	 */
-	private static $debug = false;
+
+	private static $debug = 0;
+	
+	/**
+	 * 错误日志路径
+	 * @var String
+	 */
+	private static $debugFile = './p2herror.log';
 	
 	/**
 	 * 
@@ -164,22 +174,12 @@ class P2H {
 	 * @param array $config 配置数组
 	 */
 	public static function init($config) {
-		//$config must be array and not empty
-		self::checkConfig($config); 
-		
-		//set isStatic to false and return if isStatic equal false
-		if(false===$config['isStatic'] || !isset($config['isStatic'])) {
-			self::$isStatic = false;
-			return;
-		}
-		
+				
 		//init config
 		self::initConfig($config);
 		
-		//ensure that htmls dir is exists
-		self::mkHtmlsDir();
-		
-		//set dir
+		//ensure that dir is exists
+		self::mkHtmlsDir();				
 		self::$dir = self::getHtmlDir($_SERVER['PHP_SELF']);
 		self::mkHtmlDir();
 		
@@ -192,7 +192,8 @@ class P2H {
 		self::checkUpdate();
 
 		self::ob_end();
-		ob_start();		
+		ob_start();
+
 	}
 	
 	/**
@@ -200,6 +201,7 @@ class P2H {
 	 * @return boolen
 	 */
 	public static function toHTML() {
+		
 		if(!self::$isStatic) return;
 	
 		$data = ob_get_contents();
@@ -218,7 +220,7 @@ class P2H {
 		if(isset(self::$req['from']) && isset(self::$req['jsoncallback'])) {
 			if(self::$req['from']=='ajax') {
 				if(false!==$flag) $status=array("status"=>"1");
-				else $status = array('status'=>0);
+				else $status = array('status'=>0, 'url'=>"'".self::$rootURL."'");
 	
 				echo self::$req['jsoncallback'].'('.json_encode($status),')';
 				exit;
@@ -232,8 +234,21 @@ class P2H {
 	 */
 	public static function update() {
 		if(!isset(self::$req['location']) || trim(self::$req['location'])=='')
-			die(json_encode(array('status'=>0)));
-		fopen(str_replace(self::$rootURL, self::$updateURL, self::UnRWURL(self::$req['location'])), 'r');
+			die(json_encode(array('status'=>'00')));
+		
+		$ch = curl_init();		
+		$options = array(
+				CURLOPT_TIMEOUT=>20,
+				CURLOPT_URL=>str_replace(self::$rootURL, self::$updateURL, self::UnRWURL(self::$req['location'])),
+				CURLOPT_HEADER=>false,
+		);
+		
+		curl_setopt_array($ch, $options);
+
+		if(false===curl_exec($ch)) die(json_encode(array('status'=>'01')));
+		curl_close($ch);
+		
+		//fopen(str_replace(self::$rootURL, self::$updateURL, self::UnRWURL(self::$req['location'])), 'r');
 	}
 	
 	/**
@@ -241,21 +256,33 @@ class P2H {
 	 * @param Array $config
 	 */
 	public static function initConfig($config) {
+		//$config must be array and not empty
+		self::checkConfig($config);
+		
+		//set isStatic to false and return if isStatic equal false
+		if(false===$config['isStatic'] || !isset($config['isStatic'])) {
+			self::$isStatic = false;
+			return;
+		}
+		
 		//如果没有指定updateURL, 那么默认和rootURL是一样的
-		if(!isset($config['updateURL']) && isset($config['rootURL']))
-			 self::$updateURL = $config['rootURL'];
+		if(!isset($config['updateURL']) && isset($config['rootURL']) && !empty($config['rootURL']))
+			 self::$updateURL = self::repairPath($config['rootURL']);
 		
 		foreach($config as $k=>$v) {
-			self::set($k, $v);
-			
 			//ensure that path foot has / and replace \ to /
-			$needrepair = array('rootURL', 'updateURL', 'appPath', 'p2hPath');
-			if(!is_array($v) && in_array(trim($k), $needrepair))				
+			$needrepair = array(
+					'rootURL', 
+					'updateURL', 
+					'appPath', 
+					'p2hPath',
+			);
+			if(!is_array($v) && in_array(trim($k), $needrepair))
 				$v = self::repairPath($v);
 			
-			self::$$k = $v;
-			
+			self::set($k, $v);			
 		}
+		
 	}
 	
 	/**
@@ -263,10 +290,10 @@ class P2H {
 	 * @param Array $config
 	 */
 	private static function checkConfig($config) {
-		if(!is_array($config)) 
-			self::debug('$config must be array when init($config)');
-		if(empty($config)) 
-			self::debug('$config is empty when init($config)');
+		if(!is_array($config))
+			self::debug('$config must be array when init($config)', __LINE__);
+		if(empty($config))
+			self::debug('$config is empty when init($config)', __LINE__);
 	}
 	
 	/**
@@ -279,19 +306,23 @@ class P2H {
 		return $path;
 	}
 	
+	private static function mkDir($dirname) {
+		if(!is_dir($dirname)) {
+			if(false===mkdir($dirname, 0777))
+				self::debug("mkdir failed: ".$dirname, __LINE__);
+		}
+	}
+	
 	/**
 	 * 创建静态页总的文件夹 eg:E:/app/htmls/
 	 */
 	private static function mkHtmlsDir() {
 		if(!isset(self::$htmls) || empty(self::$htmls))
-			self::debug('please set "htmls" to array $config  when init($config). eg:E:/html/');
+			self::debug('please set "htmls" to array $config  when init($config). eg:E:/html/', __LINE__);
 		
 		$dirname = self::$appPath.self::$htmls;
 		
-		if(!is_dir($dirname)) {
-			if(false===mkdir($dirname, 0777))
-				self::debug("mkdir failed: ".$dirname);
-		}
+		self::mkDir($dirname);
 	}
 	
 	/**
@@ -299,12 +330,12 @@ class P2H {
 	 * @param String $dir
 	 */
 	private static function mkHtmlDir($dir = '') {
-		$filename = self::$appPath.self::$htmls.'/';
+		$dirname = self::$appPath.self::$htmls.'/';
 		
-		if(!empty($dir))	$filename .= $dir;
-		else $filename .= self::$dir;
+		if(!empty($dir))	$dirname .= $dir;
+		else $dirname .= self::$dir;
 
-		if(!is_dir($filename)) mkdir($filename, 0777);
+		self::mkDir($dirname);
 	}
 	
 	/**
@@ -336,18 +367,25 @@ class P2H {
 		$args = explode(self::$rwRule, $argstr);
 		$rw = '';
 		
-		foreach(self::$pageInfo[$dir]['args'] as $k=>$v) {
-			if(isset($args[$k]) && !empty($args[$k]))	$rw .= $v.'='.$args[$k].'&';
+		$query = '';
+		if(isset(self::$pageInfo[$dir]['args']) && !empty(self::$pageInfo[$dir]['args'])) {
+			foreach(self::$pageInfo[$dir]['args'] as $k=>$v) {
+				if(isset($args[$k]) && !empty($args[$k]))
+					$rw .= $v.'='.$args[$k].'&';
+			}
+			
+			$rw = rtrim($rw, '&');
+			$query = empty($rw) ? '' : '?'.$rw;
 		}
-		
-		$rw = rtrim($rw, '&');
-		$query = empty($rw) ? '' : '?'.$rw;
 		
 		return self::$rootURL.$dir.'.php'.$query;
 	}
 	
 	private static function joinArgs($dq) {
 		$rw = '';
+		if(!isset(self::$pageInfo[$dq['dir']]['args']) || empty(self::$pageInfo[$dq['dir']]['args']))
+			return 'index';
+		
 		foreach(self::$pageInfo[$dq['dir']]['args'] as $v) {
 			if(isset($dq['query'][$v]))	$rw .= $dq['query'][$v].self::$rwRule;
 		}
@@ -407,7 +445,7 @@ class P2H {
 		$rw = self::RWURL($url);
 		$filename = str_replace(self::$rootURL, self::$appPath, $rw);
 		$flag = self::buildAjax($url, $filename);
-		if(false===$flag) self::debug('create ajax failed');
+		if(false===$flag) self::debug('create ajax failed', __LINE__);
 		return $rw;
 	}
 	
@@ -450,21 +488,24 @@ class P2H {
 	 * 检查变量是否有效 若无效 不更新静态页
 	 * @param mixed $var
 	 */
-	public static function check_var($var) {
-	
-		if(!is_array($var)) {
-			if(IS_STATIC) {
+	public static function checkVar($var, $type = 'array') {
+		$flag = false;
+		eval("\$flag = is_$type(\$var);");
+		if(!$flag) {
+			if(self::$isStatic) {
+				if(isset(self::$req['from'])) {
 						if(self::$req['from']=='ajax') {
-						        $arr=array("status"=>"0", "url"=>'"'.ROOT.'"');  
+						        $arr=array("status"=>"0", "url"=>'"'.self::$rootURL.'"');  
         						echo self::$req['jsoncallback'].'('.json_encode($arr),')';
 								exit;
 						}elseif(self::$req['from']=='html') {
-							echo 'location.href="'.ROOT.'"';
-							exit;
-						}else {
-							header('Location:'.ROOT);
+							echo 'location.href="'.self::$rootURL.'"';
 							exit;
 						}
+				}else {
+							header('Location:'.self::$rootURL);
+							exit;
+				}
 			}else{
 				header('Location:'.ROOT);
 				exit;
@@ -479,10 +520,10 @@ class P2H {
 	 * 不然会一直走完整个php文件直到末尾的获得ob缓冲并重新生成静态
 	 */
 	private static function checkUpdate() {
-		
-		if(!self::isWriteComplete() || self::isTimeout()) return true;
-		exit;
-		//exit(json_encode(array('status'=>'still fresh')));		
+		if(!self::isWriteComplete() || self::isTimeout()) return;
+		if(isset(self::$req['from']) && self::$req['from']=='html') {			
+			exit;
+		}else self::g2h();
 	}
 	
 	/**
@@ -490,7 +531,16 @@ class P2H {
 	 */
 	public static function g2h($url = '') {
 		if(trim($url)=='') $url = self::$tplURL;
-		header('Location: '.$url);
+		
+		if(!headers_sent()) header('Location: '.$url);
+		else{
+			$js = <<<EOF
+			<script type="text/javascript">
+				self.location="{$url}"
+			</script>
+EOF;
+			echo $js;
+		}
 		exit;
 	}
 	
@@ -506,7 +556,7 @@ class P2H {
 		
 		//更新静态页的JS, 模板是P2H.php同级目录下的P2H.JS
 		$filename = self::$p2hPath.'P2H.js';
-		if(!is_file($filename)) self::debug('can not find P2H.js file');
+		if(!is_file($filename)) self::debug('can not find P2H.js file', __LINE__);
 		$data = file_get_contents(self::$p2hPath.'P2H.js');
 		if(empty($data)) self::$debug('P2H.js is empty');
 		
@@ -520,26 +570,43 @@ class P2H {
 	 * 打印debug信息
 	 * @param mixed $msg
 	 */
-	private static function debug($msg) {
-		if(!self::$debug) return;
+	private static function debug($msg, $line = '') {
+		$msg = '['.date('Y-m-d H:i:s').'] '.get_class().' ERROR: '.$msg;
+		if(!empty($line)) $msg .= ' throw in line '.$line;
 		
-		exit(get_class().' ERROR: '.$msg);
+		switch (intval(self::$debug)) {
+		case 0: 
+			return;
+			break;
+		
+		case 1:
+			exit($msg);
+			break;
+		
+		case 2:			
+			file_put_contents(self::$debugFile, $msg.PHP_EOL, FILE_APPEND);
+			break;
+			
+		default:
+			return;
+		}
+		
 	}
 	
 	public static function get($key) {
 		$key = trim($key);
-		if(empty($key)) self::debug('preperty value is empty');
+		if(empty($key)) self::debug('preperty value is empty', __LINE__);
 		if(!in_array($key, array_keys(self::getVars())))
-			self::debug('unknow preperty $'.$key);
+			self::debug('unknow preperty $'.$key, __LINE__);
 		else return self::$$key;
 	}
 	
 	public static function set($key, $value) {
 		$key = trim($key);
-		if(empty($key)) self::debug('preperty $'.$key."'s value can not be empty");
+		if(empty($key)) self::debug('preperty $'.$key."'s value can not be empty", __LINE__);
 		if(!in_array($key, array_keys(self::getVars())))
-			self::debug('unknow preperty $'.$key);
-		else self::$$key = $key;
+			self::debug('unknow preperty $'.$key, __LINE__);
+		else self::$$key = $value;
 	}
 	
 	/**

@@ -1,5 +1,4 @@
 <?php
-define('M5CPL', 'just a test');
 require_once './P2HConfig.php';
 require_once '../P2H.php';
 
