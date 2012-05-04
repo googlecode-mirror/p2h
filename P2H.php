@@ -16,7 +16,7 @@ defined('M5CPL') or die('Access deny!');
  * 3.模板中通过P2H::RW()把路径重写成静态地址并生成对应的带有ajax的伪静态文件
  * 4.在包含模板之后调用P2H::toHTML()把缓冲内容写到静态文件里并跳转
  * 5.当点击模板上重写过的地址时, 实际上访问的是一个带有ajax请求的伪静态文件,
- *    此时如果返回写入静态文件成功的状态吗, 重新载入该页面而达到展现, 更新亦是如此
+ *    此时如果返回写入静态文件成功的状态码, 重新载入该页面而达到展现, 更新亦是如此
  * 
  * @example
  * P2H::Init($config);
@@ -208,7 +208,7 @@ class P2H {
 		$flag = false;
 	
 		if(self::$minify) {
-			require_once self::$p2hPath.'HTML.php';
+			require_once self::$p2hPath.'plugin/HTML.php';
 			$data = HTML::minify($data);
 		}
 	
