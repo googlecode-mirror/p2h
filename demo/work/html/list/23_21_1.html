@@ -1,0 +1,13 @@
+<!-- ajax page from p2h --><html><head><script type="text/javascript" src="http://localhost/p2h/plugin/jquery-1.2.min.js"></script>
+	<script>
+	$(function() {
+		$.getJSON(
+			"http://localhost/p2h/demo/list.php?cid=23&gid=21&pag=1&from=ajax&jsoncallback=?",
+			function(data){
+				if(data.status==0) top.location.href=(eval(data.url));
+				else if(data.status==1) top.location.reload();
+			}
+		);
+	});
+	</script>
+	</head><body></body></html>
