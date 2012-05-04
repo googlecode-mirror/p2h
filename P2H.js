@@ -17,7 +17,7 @@ function ajax(phpURL) {
 	$.getJSON(
 			phpURL+"?from=html&jsoncallback=?&location="+window.location,
 			function(data) {
-				if(data.status) alert(data.status);
+				if(data.status) console.log(data.status);
 			}
 		);
 }

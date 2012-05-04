@@ -1,6 +1,7 @@
 <?php
 error_reporting(-1);
 define('M5CPL', 'just a test');
+date_default_timezone_set('PRC');
 define('DS', DIRECTORY_SEPARATOR);
 $P2HConfig = array(
 	//是否生成静态

@@ -49,7 +49,7 @@ class P2H {
 	public static $isStatic = true;
 	
 	/**
-	 * 是否压缩html
+	 * 是否压缩html 默认为true
 	 * @var boolen
 	 */
 	public static $minify = true;
@@ -98,7 +98,7 @@ class P2H {
 	
 	/**
 	 * P2H的路径
-	 * @var unknown_type
+	 * @var String
 	 */
 	public static $p2hPath = '';
 	
@@ -207,11 +207,8 @@ class P2H {
 		$data = ob_get_contents();
 		$flag = false;
 	
-		if(self::$minify) {
-			require_once self::$p2hPath.'plugin/HTML.php';
-			$data = HTML::minify($data);
-		}
-	
+		$data = self::minify($data);
+			
 		$flag = file_put_contents(self::$tplPath, $data);
 	
 		unset($data);
@@ -431,12 +428,38 @@ class P2H {
 			}
 			$querys .= 'from=ajax&jsoncallback=?';
 		}
+				
+		$ajaxTpl = self::$ajaxTpl;
+	
+		$ajaxTpl = self::minify($ajaxTpl, 'JSMin');
+		
 		$url = self::$updateURL.$dir.'.php';
 		$search = array('@JQURL@', '@URL@', '@QUERY@');
 		$replace = array(self::$jqueryURL, $url, $querys);
-		$tpl = self::$ajaxFlag.self::$ajaxTpl;            
+		$tpl = self::$ajaxFlag.$ajaxTpl;
 		$data = str_replace($search, $replace, $tpl);
+		
 		return file_put_contents($filename, $data);
+	}
+	
+	/**
+	 * 压缩
+	 * @param String $data
+	 * @param String $type
+	 */
+	private static function minify($data, $type = 'HTML') {
+		if(!self::$minify) return $data;
+		
+		$type = trim($type);
+		if(!in_array($type, array('HTML', 'JSMin')))
+			self::debug('unknown minify method', __LINE__);
+		
+		$filename = self::$p2hPath.'plugin/'.$type.'.php';
+		if(file_exists($filename)) require_once $filename;
+		else self::debug($filename.' not exists');
+		
+		return $type::minify($data);
+		
 	}
 	
 	public static function RW($url) {
@@ -563,6 +586,7 @@ EOF;
 		$search = array('@JQURL@', '@phpURL@');
 		$replace = array(self::$jqueryURL, self::$rootURL.'P2HUpdate.php');
 		$data = str_replace($search, $replace, $data);
+		$data = self::minify($data, 'JSMin');
 		echo $data;
 	}
 	
