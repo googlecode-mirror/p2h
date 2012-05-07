@@ -1,7 +1,8 @@
 <?php
-require_once './P2HConfig.php';
+define('APP_ROOT', dirname(__FILE__));
+require_once APP_ROOT.'/P2HConfig.php';
 
-require_once '../../P2H.php';
+require_once dirname(dirname(APP_ROOT)).'/P2H.php';
 
 P2H::init($P2HConfig);
 

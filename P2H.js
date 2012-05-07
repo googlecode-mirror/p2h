@@ -1,21 +1,21 @@
 <script type="text/javascript">
 main('@JQURL@', '@phpURL@');
 
-function main(JQURL, phpURL) {
+function main(JQURL, url) {
 	if(typeof jQuery==='undefined') {
 		loadScript(JQURL, function(){
-			ajax(phpURL);
+			ajax(url);
 		});
 	}else{
 		$(function(){
-			ajax(phpURL);
+			ajax(url);
 		});
 	}	
 }
 
-function ajax(phpURL) {
+function ajax(url) {
 	$.getJSON(
-			phpURL+"?from=html&jsoncallback=?&location="+window.location,
+			url+"?from=html&jsoncallback=?&location="+window.location,
 			function(data) {
 				if(data.status) console.log(data.status);
 			}
