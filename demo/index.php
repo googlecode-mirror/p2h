@@ -1,6 +1,7 @@
 <?php
 
-require_once './P2HInit.php';
+require_once './bootstrap.php';
+P2H::init();
 
 $time = date('Y-m-d H:i:s');
 

@@ -1,8 +1,6 @@
 <?php
-require_once './P2HConfig.php';
-require_once '../P2H.php';
+require_once './bootstrap.php';
 
-P2H::initConfig($P2HConfig);
 P2H::update();
 
 ?>
