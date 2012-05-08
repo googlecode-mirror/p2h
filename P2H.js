@@ -1,28 +1,27 @@
 <script type="text/javascript">
-main('@JQURL@', '@phpURL@');
+updateHTML('@JQURL@', '@phpURL@');
 
-function main(JQURL, url) {
+function updateHTML(JQURL, url) {
 	if(typeof jQuery==='undefined') {
-		loadScript(JQURL, function(){
-			ajax(url);
+		loadScriptOnce(JQURL, function(){
+			askToUpdate(url);
 		});
 	}else{
 		$(function(){
-			ajax(url);
+			askToUpdate(url);
 		});
 	}	
 }
 
-function ajax(url) {
+function askToUpdate(url) {
 	$.getJSON(
 			url+"?from=html&jsoncallback=?&location="+window.location,
-			function(data) {
-				if(data.status) console.log(data.status);
+			function(data) {				
 			}
 		);
 }
 
-function loadScript(url,callback) {
+function loadScriptOnce(url,callback) {
     var script=document.createElement("script");
     script.type="text/javascript";
     if(script.readyState){
