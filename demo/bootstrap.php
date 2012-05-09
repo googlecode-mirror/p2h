@@ -1,6 +1,5 @@
 <?php
 //error_reporting(-1);
-define('M5CPL', 'just a test');
 define('DS', DIRECTORY_SEPARATOR);
 $P2HConfig = array(
 	//是否生成静态
@@ -12,7 +11,7 @@ $P2HConfig = array(
 	 * 1开启调试并把错误打印在屏幕上
 	 * 2开启调试并把错误保存在文件中 文件保存在log/p2herror.txt
 	 */
-	'debug'=>1,
+	'debug'=>2,
 	
 	//此项只在设置了debug模式为2时起效
 	'debugFile'=>dirname(__FILE__).DS.'log'.DS.'p2herror.log', 
@@ -24,10 +23,10 @@ $P2HConfig = array(
 	'p2hPath'=>dirname(dirname(__FILE__)),
 		
 	//项目URL 如:http://unbox.xda.cn
-	'rootURL'=>'http://localhost/ppl/bin/P2H/demo', 
+	'rootURL'=>'http://localhost/p2h/demo', 
 	
-	//请求静态更新的URL 如果和rootURL地址一样可注释
-	//'updateURL'=>'http://localhost/p2h/demo', 
+	//请求静态更新的URL
+	'updateURL'=>'http://localhost/p2h/demo', 
 
 	/**
 	 * 各页面的配置信息
@@ -38,7 +37,7 @@ $P2HConfig = array(
 			//index.php
 			'index'=>array(
 					'timeout'=>10,
-					//'args'=>array('cid', 'pag'),
+					'args'=>array('cid', 'pag'),
 			),
 			//list.php
 			'list'=>array(
@@ -48,7 +47,7 @@ $P2HConfig = array(
 	),
 
 	//jq url js发送ajax请求的时候用到 默认为jq官网链接
-	'jqueryURL'=>'http://localhost/ppl/bin/P2H/plugin/jquery-1.2.min.js', 
+	//'jqueryURL'=>'http://localhost/ppl/bin/P2H/plugin/jquery-1.2.min.js', 
 		
 	//存放html的文件夹的名字 这个文件夹放在app根目录下 默认为html
 	//'htmls'=>'html', 
@@ -62,4 +61,7 @@ $P2HConfig = array(
 	//$_REQUEST数组
 	'req'=>$_REQUEST, 
 );
+require_once dirname(dirname(__FILE__)).DS.'P2H.php';
+P2H::initConfig($P2HConfig);
+unset($PEHConfig);
 ?>
