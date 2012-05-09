@@ -1,7 +1,4 @@
 <?php
-
-defined('M5CPL') or die('Access deny!');
-
 /**
  * 
  * @author zhupp 20120428 12:43
