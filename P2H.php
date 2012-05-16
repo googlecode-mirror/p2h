@@ -1,4 +1,7 @@
 <?php
+
+defined('M5CPL') or die('Access deny! in: '.__FILE__);
+
 /**
  * 
  * @author zhupp 20120428 12:43
@@ -140,21 +143,22 @@ class P2H {
 		$.getJSON(
 			"@URL@@QUERY@",
 			function(data){
-                                if(window.console&&window.console.log){
-                                   window.console.log(JSON.stringify(data));
-                                   window.console.log(data.status);
+                                if(data){
+                                
+                                    if(window.console && window.console.log){
+                                       window.console.log(JSON.stringify(data));
+                                    }
                                    
-                                }
-				if(data.status==0){
-                                    if(window.console&&window.console.log){
-                                       window.console.log(0);
+                                    if(data.status && data.status==1){
+                                      setTimeout(function(){
+                                        window.location.reload(true);
+										},3000);
+                                    }else if(data.status && data.url && data.status==0){
+                                    	location.href=eval(data.url);
                                     }
-                                    location.href=data.url;
-                                }else { 
-                                    if(window.console&&window.console.log){
-                                       window.console.log(0);
-                                    }
-                                    location.reload(true);
+                                   
+                                }else{
+                                   location.href = "http://bbs.xda.cn/";
                                 }
 			}
 		);
@@ -174,6 +178,7 @@ class P2H {
 	 */
 	private static $ajaxFlag = '<!-- ajax page from p2h -->';
 
+	
 	/**
 	 * 私有化方法防止new和克隆静态类
 	 */
@@ -188,6 +193,9 @@ class P2H {
 	public static function init() {
 		if(!self::$isStatic) return;
 		//ensure that dir is exists
+		if(self::$debug==2)
+			self::mkDir(dirname(self::$debugFile));
+		
 		self::mkHtmlsDir();				
 		self::set('dir', self::getHtmlDir());
 		self::mkHtmlDir();
@@ -212,7 +220,10 @@ class P2H {
 	 */
 	public static function initConfig($config) {
 		//$config must be array and not empty
-		self::checkConfig($config);
+		if(!is_array($config))
+			self::debug('$config must be array when init($config)', __LINE__);
+		if(empty($config))
+			self::debug('$config is empty when init($config)', __LINE__);
 	
 		foreach($config as $k=>$v) {
 			self::set($k, $v);
@@ -229,7 +240,13 @@ class P2H {
 	
 		$data = ob_get_contents();
 		$flag = false;
-	
+		if(!$data) {
+			$status = array('status'=>'0', 'url'=>self::$rootURL);			
+			self::showStatus($status);
+		}
+		
+		$data = self::insertBetween($data, self::loadScript(), '</body>');
+		//D($data);
 		if(phpversion() >= '5.3') $data = self::minify($data);
 			
 		$flag = file_put_contents(self::$tplPath, $data);
@@ -240,10 +257,9 @@ class P2H {
 		if(isset(self::$req['from']) && isset(self::$req['jsoncallback'])) {
 			if(self::$req['from']=='ajax') {
 				if(false!==$flag) $status=array('status'=>'1');
-				else $status = array('status'=>'0', 'url'=>"'".self::$rootURL."'");
+				else $status = array('status'=>'0', 'url'=>self::$rootURL);
 	
-				echo self::$req['jsoncallback'].'('.json_encode($status),')';
-				exit;
+				self::showStatus($status);
 			}
 		}else self::jump();
 	
@@ -259,7 +275,7 @@ class P2H {
 		
 		$ch = curl_init();		
 		$options = array(
-				CURLOPT_TIMEOUT=>20,
+				CURLOPT_TIMEOUT=>30,
 				CURLOPT_URL=>str_replace(self::$rootURL, self::$updateURL, self::UnRWURL(self::$req['location'])),
 				CURLOPT_HEADER=>false,
 		);
@@ -272,22 +288,16 @@ class P2H {
 		//fopen(str_replace(self::$rootURL, self::$updateURL, self::UnRWURL(self::$req['location'])), 'r');
 	}
 	
-	/**
-	 * 检查载入的配置的格式是否正确
-	 * @param Array $config
-	 */
-	private static function checkConfig($config) {
-		if(!is_array($config))
-			self::debug('$config must be array when init($config)', __LINE__);
-		if(empty($config))
-			self::debug('$config is empty when init($config)', __LINE__);
+	private function showStatus($status) {	
+		echo self::$req['jsoncallback'].'('.json_encode($status),')';
+		exit;
 	}
 	
 	/**
 	 * 修复路径
 	 * @param String $path
 	 */
-	private static function repairPath($path) {
+	private function repairPath($path) {
 		$path= str_replace('\\', '/', $path);
 		$path = rtrim($path, '/').'/';
 		return $path;
@@ -297,7 +307,7 @@ class P2H {
 	 * 删除无效的静态文件
 	 * @param String $htmlPath
 	 */
-	private static function delHTML($htmlPath) {
+	private function delHTML($htmlPath) {
 		if(!file_exists($htmlPath)) return true;
 		
 		chmod($htmlPath, 0777);
@@ -310,7 +320,7 @@ class P2H {
 	 * 创建目录
 	 * @param String $dirname
 	 */
-	private static function mkDir($dirname) {
+	private function mkDir($dirname) {
 		if(!is_dir($dirname)) {
 			if(false===mkdir($dirname, 0777))
 				self::debug("mkdir failed: ".$dirname, __LINE__);
@@ -320,7 +330,7 @@ class P2H {
 	/**
 	 * 创建静态页总的文件夹 eg:E:/app/htmls/
 	 */
-	private static function mkHtmlsDir() {
+	private function mkHtmlsDir() {
 		if(!isset(self::$htmls) || empty(self::$htmls))
 			self::debug('please set "htmls" to array $config  when init($config). eg:E:/html/', __LINE__);
 		
@@ -333,7 +343,7 @@ class P2H {
 	 * 创建栏目静态页的文件夹 eg:E:/app/htmls/list/
 	 * @param String $dir
 	 */
-	private static function mkHtmlDir($dir = '') {
+	private function mkHtmlDir($dir = '') {
 		$dirname = self::$appPath.self::$htmls.'/';
 		
 		if(!empty($dir))	$dirname .= $dir;
@@ -370,6 +380,9 @@ class P2H {
 	public static function UnRWURL($url) {
 		if(!self::$isStatic) return $url;
 		
+		if(strpos($url, self::$htmls)===false)
+			return self::$rootURL.'index.php';
+		
 		$dir = basename(dirname($url));
 
 		$argstr = basename($url, self::$rwEnd);
@@ -394,7 +407,7 @@ class P2H {
 	 * 拼接参数值
 	 * @param Array $dq
 	 */
-	private static function joinArgs($dq) {
+	private function joinArgs($dq) {
 		
 		$rw = '';
 		
@@ -424,7 +437,7 @@ class P2H {
 	 * 得到html目录名和query数组
 	 * @param String $url
 	 */
-	public static function dq($url) {
+	private function dq($url) {
 		$urlinfo = parse_url($url);
 		
 		$query = '';
@@ -443,7 +456,7 @@ class P2H {
 	 * 得到页面的html子目录
 	 * 
 	 */
-	public static function getHtmlDir() {
+	private function getHtmlDir() {
 		$urlinfo = parse_url($_SERVER['PHP_SELF']);
 		return basename($urlinfo['path'], '.php');
 	}
@@ -453,7 +466,7 @@ class P2H {
 	 * @param String $url
 	 * @param String $filename
 	 */
-	private static function buildAjax($url, $filename) {
+	private function buildAjax($url, $filename) {
 		if(is_file($filename)) return;
 		
 		$dq = self::dq($url);
@@ -470,28 +483,29 @@ class P2H {
 			}
 			$querys .= 'from=ajax&jsoncallback=?';
 		}
-				
-		$ajaxTpl = self::$ajaxTpl;
+		$tpl = self::insertBetween(self::$ajaxTpl, self::$ajaxFlag);
 		
 		$url = self::$updateURL.$dir.'.php';
 		$search = array('@JQURL@', '@URL@', '@QUERY@');
-		$replace = array(self::$jqueryURL, $url, $querys);
+		$replace = array(self::$jqueryURL, $url, $querys);		
+		$tpl = str_replace($search, $replace, $tpl);
 		
-		$delimiter = '<body>';
-		$tpls = explode($delimiter, $ajaxTpl);
-		$tpl = $tpls[0].$delimiter.self::$ajaxFlag.$tpls[1];
-		//$tpl = self::$ajaxFlag.$ajaxTpl;
-		$data = str_replace($search, $replace, $tpl);
-		
-		return file_put_contents($filename, $data);
+		return file_put_contents($filename, $tpl);
 	}
 	
+	private function insertBetween($data, $insert, $delimiter = '<body>') {
+		if(strpos($data, $delimiter)===false)
+			self::debug('tags '.$delimer.' not found, insert failed');
+		
+		$tpls = explode($delimiter, $data);
+		return $tpls[0].$delimiter.$insert.$tpls[1];
+	}
 	/**
 	 * 压缩
 	 * @param String $data
 	 * @param String $type
 	 */
-	private static function minify($data, $type = 'HTML') {
+	private function minify($data, $type = 'HTML') {
 		
 		if(!self::$minify) return $data;
 		
@@ -525,7 +539,7 @@ class P2H {
 	 * 静态页是否超过有效期
 	 * @return boolen
 	 */
-	public static function isTimeout() {
+	private function isTimeout() {
 		//及时更新 用法:http://localhost/app/index.php?cid=2&fresh=true
 		if(isset(self::$req['fresh']) && trim(self::$req['fresh'])==='true')
 			return true;
@@ -543,7 +557,7 @@ class P2H {
 	 * 检查静态文件是否写入完整
 	 * @return boolen
 	 */
-	public static function isWriteComplete() {
+	private function isWriteComplete() {
 		if(!file_exists(self::$tplPath)) return false;
 		
 		$con = file_get_contents(self::$tplPath);
@@ -555,22 +569,19 @@ class P2H {
 	 * 是否是伪静态文件
 	 * @param String $con
 	 */
-	public static function isAjaxFile($con = '') {
+	private function isAjaxFile($con = '') {
 		if(empty($con)) $con = file_get_contents(self::$tplPath);
 		return strstr($con, self::$ajaxFlag);
 	}
 	
 	/**
-	 * 检查变量是否有效 若无效 不更新静态页
+	 * 检查条件是否为真 如果假 不更新静态页
 	 * @param mixed $var
 	 */
-	public static function checkVar($var, $type = 'array') {
-		$flag = false;
-		eval("\$flag = is_$type(\$var);");
-		
-		if(!$flag) {
+	public static function check($condition) {
+		if(!$condition) {
 			//删除静态文件
-			self::delHTML(self::$tplPath);
+			//self::delHTML(self::$tplPath);
 			//返回状态码
 			if(self::$dir==='index') {
 				if(strpos(self::$rootURL, 'http://www.xda.cn')) 
@@ -578,16 +589,17 @@ class P2H {
 				else $jumpto = 'http://www.xda.cn/';
 			}else $jumpto = self::$rootURL;
 			//D(self::$dir);
-			if(!self::$isStatic)  header('Location:'.$jumpto);
-			if(!isset(self::$req['from'])) header('Location:'.$jumpto);
+			if(!self::$isStatic || !isset(self::$req['from']))
+				self::jump($jumpto);
 				
 			if(self::$req['from']=='ajax') {
 					$arr=array("status"=>"0", "url"=>'"'.$jumpto.'"');
-					echo self::$req['jsoncallback'].'('.json_encode($arr),')';					
+					echo self::$req['jsoncallback'].'('.json_encode($arr),')';
+					exit;
 			}elseif(self::$req['from']=='html') {
 				die(json_encode(array('status'=>'01')));
-			}			
-			exit;
+			}
+			
 		}
 		
 	}
@@ -597,9 +609,9 @@ class P2H {
 	 * 这个方法在init里头调用了, 所以不需要更新的时候要直接exit终止掉
 	 * 不然会一直走完整个php文件直到末尾的获得ob缓冲并重新生成静态
 	 */
-	private static function checkUpdate() {
+	private function checkUpdate() {
 		if(!self::isWriteComplete() || self::isTimeout()) return;
-		if(isset(self::$req['from']) && self::$req['from']=='html') {			
+		if(isset(self::$req['from']) && self::$req['from']=='html') {
 			exit;
 		}else self::jump();
 	}
@@ -607,7 +619,7 @@ class P2H {
 	/**
 	 * 跳转
 	 */
-	public static function jump($url = '') {
+	private function jump($url = '') {
 		if(trim($url)=='') {
 			$url = self::$tplURL;
 			if(!file_exists(self::$tplPath)) 
@@ -628,19 +640,20 @@ EOF;
 	/**
 	 * 清空缓冲区
 	 */
-	private static function ob_end() {
+	private function ob_end() {
 		if(ob_get_length() > 0) ob_end_clean();
 	}
 	
 	/**
 	 * 加载负责发出更新请求的JS
 	 */
-	public static function loadScript() {
+	private function loadScript() {
 		if(!self::$isStatic) return;
 		
 		//更新静态页的JS, 模板是P2H.php同级目录下的P2H.JS
 		$filename = self::$p2hPath.'P2H.js';
 		if(!is_file($filename)) self::debug('can not find '.$filename, __LINE__);
+
 		$data = file_get_contents(self::$p2hPath.'P2H.js');
 		if(empty($data)) self::$debug('P2H.js is empty');
 		
@@ -648,7 +661,7 @@ EOF;
 		$replace = array(self::$jqueryURL, self::$rootURL.'P2HUpdate.php');
 		$data = str_replace($search, $replace, $data);
 		if(phpversion() >= '5.3') $data = self::minify($data, 'JSMin');
-		echo $data;
+		return $data;
 	}
 	
 	/**
@@ -658,7 +671,7 @@ EOF;
 	 * return array('files'=>array(...),'dirs'=>array(...))
 	 *
 	 */
-	public static function htmlList() {
+	private function htmlList() {
 		$extensions = array(ltrim(self::$rwEnd, '.'));
 		$root = self::$appPath.self::$htmls;
 		$files  = array('files'=>array(), 'dirs'=>array());
@@ -701,8 +714,8 @@ EOF;
 	 * 打印debug信息
 	 * @param mixed $msg
 	 */
-	private static function debug($msg, $line = '') {
-		$msg = '['.date('Y-m-d H:i:s').'] '.$msg;
+	private function debug($msg, $line = '') {
+		$msg = '['.date('Y-m-d H:i:s').'] {'.get_class().' error} '.$msg;
 		if(!empty($line)) $msg .= ' throw in line '.$line;
 		
 		switch (intval(self::$debug)) {
@@ -715,7 +728,6 @@ EOF;
 			break;
 		
 		case 2:
-			self::mkDir(dirname(self::$debugFile));
 			file_put_contents(self::$debugFile, $msg.PHP_EOL, FILE_APPEND);
 			break;
 			
@@ -767,7 +779,7 @@ EOF;
 	 * 返回由类的默认属性组成的数组
 	 * @return Array
 	 */
-	public static function getVars() {
+	private function getVars() {
 		return get_class_vars(get_class());
 	}
 		
