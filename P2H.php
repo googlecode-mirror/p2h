@@ -136,33 +136,35 @@ class P2H {
 	 * 带有ajax请求的html模板
 	 * @var String
 	 */
-	private static $ajaxTpl = '<html><head>
+	private static $ajaxTpl = '<!DOCTYPE html><html>
+ <head>
+ <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache" />
+  <meta http-equiv="expires" content="Sunday 26 October 2008 01:00 GMT" />  
     <script type="text/javascript" src="@JQURL@"></script>
-	<script type="text/javascript">
-	$(function() {
-		$.getJSON(
-			"@URL@@QUERY@",
-			function(data){
-                                if(data){
-                                
-                                    if(window.console && window.console.log){
-                                       window.console.log(JSON.stringify(data));
-                                    }
-                                   
-                                    if(data.status && data.status==1){
-                                      setTimeout(function(){
-                                        window.location.reload(true);
-										},3000);
-                                    }else if(data.status && data.url && data.status==0){
-                                    	location.href=eval(data.url);
-                                    }
-                                   
-                                }else{
-                                   location.href = "http://bbs.xda.cn/";
-                                }
-			}
-		);
-	});
+    <script> 
+	$(function(){              
+		$.ajax({
+			dataType: "jsonp",
+			url: "@URL@",
+			data: {@QUERY@},
+				success: function(data) {
+					if(data && data.status) {
+						if(data.status==0 && data.url){
+							location.href = eval(data.url);
+						}else if(data.status==1){
+							setTimeout(function(){
+                                location.reload(true);
+                            },300);
+						}
+					}else{
+                            location.href = "http://bbs.xda.cn/";
+                    }
+                                        
+				}
+		});
+                
+        });
 	</script>
 	</head><body></body></html>';
 	
@@ -196,7 +198,7 @@ class P2H {
 		if(self::$debug==2)
 			self::mkDir(dirname(self::$debugFile));
 		
-		self::mkHtmlsDir();				
+		self::mkHtmlsDir();
 		self::set('dir', self::getHtmlDir());
 		self::mkHtmlDir();
 		
@@ -207,8 +209,9 @@ class P2H {
 		self::set('tplPath', self::$appPath.$footer);
 		self::set('tplURL', self::$rootURL.$footer);
 		//D(self::getVars());
-		self::checkUpdate();
-
+                
+        self::checkUpdate();
+                
 		self::ob_end();
 		ob_start();
 
@@ -253,8 +256,7 @@ class P2H {
 
 		unset($data);
 		self::ob_end();
-	
-		if(isset(self::$req['from']) && isset(self::$req['jsoncallback'])) {
+		if(isset(self::$req['from']) && isset(self::$req['callback'])) {
 			if(self::$req['from']=='ajax') {
 				if(false!==$flag) $status=array('status'=>'1');
 				else $status = array('status'=>'0', 'url'=>self::$rootURL);
@@ -271,8 +273,7 @@ class P2H {
 	public static function update() {
 		if(!isset(self::$req['location']) || trim(self::$req['location'])=='')
 			die(json_encode(array('status'=>'00')));
-		
-		
+				
 		$ch = curl_init();		
 		$options = array(
 				CURLOPT_TIMEOUT=>30,
@@ -289,7 +290,7 @@ class P2H {
 	}
 	
 	private function showStatus($status) {	
-		echo self::$req['jsoncallback'].'('.json_encode($status),')';
+		echo self::$req['callback'].'('.json_encode($status),')';
 		exit;
 	}
 	
@@ -439,17 +440,19 @@ class P2H {
 	 */
 	private function dq($url) {
 		$urlinfo = parse_url($url);
-		
 		$query = '';
 		if(isset($urlinfo['query']) && !empty($urlinfo['query']))
 			parse_str($urlinfo['query'], $query);
 		
 		$dir = basename($urlinfo['path'], '.php');
-		
-		foreach(self::$pageInfo[$dir]['args'] as $v) {
-			if($query[$v]) $querys[$v] = $qu;
+		if(!isset(self::$pageInfo[$dir]['args']) || empty(self::$pageInfo[$dir]['args']))
+			$q = null;
+		else {
+			foreach(self::$pageInfo[$dir]['args'] as $v) {
+				if($query[$v]) $q[$v] = $query[$v];
+			}
 		}
-		return array('dir'=>$dir, 'query'=>$query);
+		return array('dir'=>$dir, 'query'=>$q);
 	}
 	
 	/**
@@ -477,12 +480,11 @@ class P2H {
 		
 		$querys = '';
 		if(is_array($query) && !empty($query)) {
-			$querys = '?';
 			foreach(self::$pageInfo[$dir]['args'] as $k=>$v) {
-				if(isset($query[$v]))	$querys .= $v.'='.$query[$v].'&';
-			}
-			$querys .= 'from=ajax&jsoncallback=?';
+				if(isset($query[$v]))	$querys .= "'{$v}':'{$query[$v]}', ";
+			}			
 		}
+		$querys .= "'from':'ajax'";
 		$tpl = self::insertBetween(self::$ajaxTpl, self::$ajaxFlag);
 		
 		$url = self::$updateURL.$dir.'.php';
@@ -493,12 +495,12 @@ class P2H {
 		return file_put_contents($filename, $tpl);
 	}
 	
-	private function insertBetween($data, $insert, $delimiter = '<body>') {
+	private function insertBetween($data, $insert, $delimiter = '</body>') {
 		if(strpos($data, $delimiter)===false)
 			self::debug('tags '.$delimer.' not found, insert failed');
 		
 		$tpls = explode($delimiter, $data);
-		return $tpls[0].$delimiter.$insert.$tpls[1];
+		return $tpls[0].$insert.$delimiter.$tpls[1];
 	}
 	/**
 	 * 压缩
@@ -576,7 +578,7 @@ class P2H {
 	
 	/**
 	 * 检查条件是否为真 如果假 不更新静态页
-	 * @param mixed $var
+	 * @param boolen $condition
 	 */
 	public static function check($condition) {
 		if(!$condition) {
@@ -593,11 +595,9 @@ class P2H {
 				self::jump($jumpto);
 				
 			if(self::$req['from']=='ajax') {
-					$arr=array("status"=>"0", "url"=>'"'.$jumpto.'"');
-					echo self::$req['jsoncallback'].'('.json_encode($arr),')';
-					exit;
+				self::showStatus(array("status"=>"0", "url"=>'"'.$jumpto.'"'));
 			}elseif(self::$req['from']=='html') {
-				die(json_encode(array('status'=>'01')));
+				self::showStatus(array('status'=>'01'));
 			}
 			
 		}
@@ -610,7 +610,7 @@ class P2H {
 	 * 不然会一直走完整个php文件直到末尾的获得ob缓冲并重新生成静态
 	 */
 	private function checkUpdate() {
-		if(!self::isWriteComplete() || self::isTimeout()) return;
+		if((isset(self::$req['from']) && self::$req['from']=='ajax') || !self::isWriteComplete() || self::isTimeout()) return;
 		if(isset(self::$req['from']) && self::$req['from']=='html') {
 			exit;
 		}else self::jump();

@@ -1,5 +1,7 @@
 <script type="text/javascript">
-updateHTML('@JQURL@', '@phpURL@');
+	$(function(){
+		updateHTML('@JQURL@', '@phpURL@');
+	});
 
 function updateHTML(JQURL, url) {
 	if(typeof jQuery==='undefined') {
