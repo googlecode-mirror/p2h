@@ -358,11 +358,19 @@ class P2H {
 	public static function UnRWURL($url) {
 		if(!self::$isStatic) return $url;
 		
-		if(strpos($url, self::$htmls)===false)
+		if(strpos($url, self::$rootURL)===false)
 			return self::$rootURL.'index.php';
-		
-		$dir = basename(dirname($url));
 
+		$urlinfo = parse_url($url);
+		$rootURLInfo = parse_url(self::$rootURL.'html');
+		$dirpath = str_replace($rootURLInfo, '', $urlinfo['path']);
+		$dir = '';
+		if(!empty($dirpath)){
+			$dir = dirname($dirpath);
+			if($dir==='.')	$dir = '';			
+			if(!empty($dir))	$dir = ltrim($dir, '/');
+		}
+		
 		$argstr = basename($url, self::$rwEnd);
 		$args = explode(self::$rwRule, $argstr);
 		$rw = '';
@@ -377,7 +385,7 @@ class P2H {
 			$rw = rtrim($rw, '&');
 			$query = empty($rw) ? '' : '?'.$rw;
 		}
-		
+		//D(self::$rootURL.$dir.'.php'.$query);
 		return self::$rootURL.$dir.'.php'.$query;
 	}
 	
@@ -539,26 +547,13 @@ class P2H {
 		//及时更新 用法:http://localhost/app/index.php?cid=2&fresh=true
 		if(isset(self::$req['fresh']) && trim(self::$req['fresh'])==='true')
 			return true;
-		
 		//设置超时时间
 		if(isset(self::$pageInfo[self::$htmlDirName]) && isset(self::$pageInfo[self::$htmlDirName]['timeout'])) 
 			self::$timeout = intval(self::$pageInfo[self::$htmlDirName]['timeout']);
-		self::debug(time() - $mtime);
+			
 		$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : 0;
 		if(time() - $mtime > self::$timeout) return true;
 		else return false;		
-	}
-	
-	/**
-	 * 检查静态文件是否写入完整
-	 * @return boolen
-	 */
-	private function isWriteComplete() {
-		if(!file_exists(self::$tplPath)) return false;
-		
-		$con = file_get_contents(self::$tplPath);
-		return (self::$req['from']=='html' && strpos($con, '</html>'));
-		
 	}
 	
 	/**
@@ -588,7 +583,7 @@ class P2H {
 	 * 不然会一直走完整个php文件直到末尾的获得ob缓冲并重新生成静态
 	 */
 	private function checkUpdate() {
-		if((isset(self::$req['from']) && self::$req['from']=='ajax') || !self::isWriteComplete() || self::isTimeout()) return;
+		if((isset(self::$req['from']) && self::$req['from']=='ajax') || self::isTimeout()) return;
 		if(isset(self::$req['from']) && self::$req['from']=='html') {
 			exit;
 		}
