@@ -29,7 +29,7 @@ $P2HConfig = array(
 		'debugFile'=>App.DS.'html'.DS.'log'.DS.'p2herror.log',
 
 		//p2h路径
-		'p2hPath'=>dirname(App),
+		'p2hPath'=>Bin.'/P2H',
 
 		/**
 		 * 各页面的配置信息
