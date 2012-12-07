@@ -1,20 +1,20 @@
 <script type="text/javascript">
 
-updateHTML('@JQURL@', '@phpURL@');
+updateHTML('@JQURL@', '@updateURL@', '@phpURL@');
 
-function updateHTML(JQURL, url) {
+function updateHTML(JQURL, updateURL, phpURL) {
 	if(typeof jQuery==='undefined') {
 		loadScriptOnce(JQURL, function(){
-			askToUpdate(url);
+			askToUpdate(updateURL, phpURL);
 		});
 	}else{
-			askToUpdate(url);
+			askToUpdate(updateURL, phpURL);
 	}	
 }
 
-function askToUpdate(url) {
+function askToUpdate(updateURL, phpURL) {
 	$.getJSON(
-			url+"?from=html&callback=?&location="+window.location,
+			updateURL+"?from=html&callback=?&location="+phpURL,
 			function(data) {				
 			}
 		);

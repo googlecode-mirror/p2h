@@ -1,18 +1,12 @@
 <?php
-//设置默认时区为中国
-date_default_timezone_set('PRC');
+
 /**
  * 静态相关
  */
-$P2HConfig = array(
+return array(
 		//是否生成静态
 		'isStatic'=>true,
 		
-		//项目URL
-		'rootURL'=>ROOT,
-		
-		//请求静态更新的URL
-		'updateURL'=>ROOT,
 		
 		/**
 		 * 调试模式:
@@ -23,13 +17,13 @@ $P2HConfig = array(
 		'debug'=>1,
 		
 		//项目路径
-		'appPath'=>App,
+		'appPath'=>APP,
 		
 		//此项只在设置了debug模式为2时起效
-		'debugFile'=>App.DS.'html'.DS.'log'.DS.'p2herror.log',
+		'debugFile'=>APP.DS.'log'.DS.'p2herror.log',
 
 		//p2h路径
-		'p2hPath'=>Bin.'/P2H',
+		'p2hPath'=>dirname(APP),
 
 		/**
 		 * 各页面的配置信息
@@ -40,26 +34,39 @@ $P2HConfig = array(
 				// index.php
 				'index'=>array(
 						'timeout'=>500,
+						'rootURL'=>ROOT,
+						'updateURL'=>ROOT,
 				),
-				// news.php
-				'news'=>array(
+				'news/index'=>array(
+						'args'=>array('pag'),
 						'timeout'=>500,
-						'args'=>array('id'),
+						'rootURL'=>NEWS_ROOT,
+						'updateURL'=>NEWS_ROOT,
+				),
+				// news/news.php
+				'news/news'=>array(
+						'timeout'=>500,
+						'args'=>array('id', 'pag'),
+						'rootURL'=>NEWS_ROOT,
+						'updateURL'=>NEWS_ROOT,
 				),
 				// news/it/index.php
 				'news/it/index'=>array(
 						'timeout'=>500,
+						'args'=>array('pag'),
+						'rootURL'=>IT_ROOT,
+						'updateURL'=>IT_ROOT,
 				),
 				// news/it/news.php
 				'news/it/news'=>array(
 						'timeout'=>500,
-						'args'=>array('id'),
+						'args'=>array('id', 'cid', 'gid', 'pag' ),
+						'rootURL'=>IT_ROOT,
+						'updateURL'=>IT_ROOT,
 				),
 				
 		),
 
-		//可注释 jq url js发送ajax请求的时候用到 默认为jq官网链接
-		'jqueryURL'=>'http://img2.xda-china.com/lab/static/js/jquery.js',
 
 		//存放html的文件夹的名字 这个文件夹放在app根目录下 默认为html
 		//'htmls'=>'html',

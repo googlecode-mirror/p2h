@@ -1,16 +1,26 @@
 <?php
-define("M5CPL", "d8a3d75ac2f6b243d869f1f2927bbcb6");
-define('App', __DIR__);
-define('ROOT', 'http://localhost/zhupp_google/p2h/demo/');
-require_once App.'/config/P2HConfig.php';
-require_once dirname(App).'/P2H.php';
-//载入静态配置
-P2H::initConfig($P2HConfig);
-
-function D($var){
+/**
+ * 静态相关
+ */
+ function D($var){
 	echo "<pre>";
 	var_dump($var);
-	echo "</pre>";
+	echo "<pre>";
 	exit;
-}
+ }
+define('APP', dirname(__FILE__));
+define('ROOT', 'http://localhost/p2h_svn/demo/');
+define('NEWS_ROOT', 'http://localhost/p2h_svn/demo/news/');
+define('IT_ROOT', NEWS_ROOT.'it/');
+define('DS', DIRECTORY_SEPARATOR);
+
+define('M5CPL', 'just a test');
+
+date_default_timezone_set('PRC');
+
+require_once dirname(APP).'/P2H.php';
+P2H::initConfig(require(APP.'/config/P2HConfig.php'));
+
+//var_dump(P2H::getVars());exit;
+
 ?>
