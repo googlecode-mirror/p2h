@@ -48,7 +48,7 @@ class P2HConfig{
 	 * 静态页请求更新的时候会在url后面加此参数说明是哪个php地址生成的,用于后面的更新。
 	 * @var string
 	 */
-	const PHP_SELF = 'url';
+	const LOCATION = 'location';
 	
 	
 	/**
@@ -215,9 +215,26 @@ $(function(){
 		$pageInfo = self::pageInfo($path);
 		return isset($pageInfo['rootURL']) ? $pageInfo['rootURL'] : null;
 	}
-	
-	public static function rootPath($path){
+
+	/**
+	 * 获得根路径
+	 *@example news/news : news, news/index : news
+	 * @param unknown_type $path
+	 * @return unknown
+	 */
+	public static function rootPath($path=''){
+		if(empty($path) || $path=='index') return self::$appPath;
+		$path = str_replace(array("/", "\\"), DS, $path);
+		
+		if(dirname($path)!='.') $path = DS.dirname($path);
+
 		return self::$appPath.$path;
+	}
+	
+	public static function timeout(){
+		$rpath = P2HPath::getRelativePath();
+		$pageInfo = self::pageInfo($rpath);
+		return isset($pageInfo['timeout']) ? $pageInfo['timeout'] : 0;
 	}
 	
 	/**
@@ -225,10 +242,8 @@ $(function(){
 	 * @param String $key
 	 */
 	public static function get($key) {
-		$key = trim($key);
-		if(!in_array($key, array_keys(self::getVars())))
-			self::debug('unknow preperty $'.$key, __LINE__);
-		
+		$key = trim($key);       
+     	
 		return self::$$key;
 	}
 	
@@ -397,30 +412,46 @@ class P2HLog{
 
 
 class P2HPath{
+	//http://localhost/p2h_svn/demo/news/20121208/3.html
 	public static function RWURL($url='', $time=0){
 		if(!P2HConfig::get('isStatic')) return $url;	
 		
-		$htmlPath = self::getHtmlPath($url);
-		
-		$htmlPath = basename($htmlPath, P2HConfig::get('rwEnd'));
+		$htmlPath = self::getHtmlPath($url, $time);
 
 		$rootURL = self::getRootURL($url);
-		//D($rootURL);
-		$result = self::repairPath(self::getRootURL($url)).$htmlPath.P2HConfig::get('rwEnd');
+		$result = self::repairPath($rootURL).$htmlPath;
 
 		return $result;
 	}
 	
 	public static function RWPath($url='', $time=0){
 		if(!P2HConfig::get('isStatic')) return $url;	
-		
-		$htmlPath = self::getHtmlPath($url);
-		$rootURL = self::getRootURL($url);
 
+		$htmlPath = str_replace('/', DS, self::getHtmlPath($url, $time));
+		$rpath = self::getRelativePath($url);
+		
+		$dir = dirname($rpath);
+
+		if($dir!='.'){
+			$dirs = explode('/', $dir);
+			$mdir = P2HConfig::get('appPath');
+			foreach($dirs as $v){
+				$mdir .= DS.$v;
+				P2HFile::mkDir($mdir);
+			}
+		}
+		$dateDir = dirname($htmlPath);
+		if($dateDir!='.'){
+			P2HFile::mkDir($mdir.DS.$dateDir);
+		}
+		$result = P2HConfig::rootPath($rpath).DS.$htmlPath;
 		return $result;
 	}
 	
-	public static function phpName($url){
+	public static function phpName($url=''){
+		if(empty($url)){
+			$url = $_SERVER['PHP_SELF'];
+		}
 		$url = parse_url($url);
 		return basename($url['path'], '.php');
 	}
@@ -444,9 +475,9 @@ class P2HPath{
 
 		if(isset($pageInfo['args'])){
 			foreach($pageInfo['args'] as $v){
-				if(isset($req[$v])){
-					$result[$v] = $req[$v];
-				}
+				//if(isset($req[$v])){
+					$result[$v] = intval($req[$v]);
+				//}
 			}
 		}
 
@@ -457,13 +488,12 @@ class P2HPath{
 	public static function rwArgs($url=''){
 		$rwArgs = '';
 		$args = self::getArgs($url);
-
-		//删掉末尾的清一色0
-		$args = array_values($args);
 		if(!is_array($args) || empty($args)){
 			return self::phpName($url);
 		}
-
+		
+		//删掉末尾的清一色0
+		$args = array_values($args);
 		for($i=count($args)-1; $i>=0; $i--) {
 			if($args[$i]==0) {
 				unset($args[$i]);
@@ -477,7 +507,7 @@ class P2HPath{
 		$rwArgs = rtrim($rwArgs, $rwRule);
 		
 		//D($rwArgs);
-		return $rwArgs;
+		return empty($rwArgs) ? 'index' : $rwArgs;
 	}
 	
 	/**
@@ -490,30 +520,29 @@ class P2HPath{
 		return $path;
 	}
 	
+	//20121221/3.html
 	public static function getHtmlPath($url='', $time=0){
 		$time = intval($time);
 		$result = '';
 
 		$args = self::rwArgs($url);
 		$dateDir = self::dateDir($url, $time);
+	
 		return $dateDir.$args.P2HConfig::get('rwEnd');
 	}
 	
-	public static function getRootURL($url){
+	public static function getRootURL($url=''){
 		$rpath = self::getRelativePath($url);
 		return P2HConfig::rootURL($rpath);
 	}
 	
-	
-	
+
 	public static function dateDir($url, $time){
 		$result = '';
-		if(self::dealDir($url)!='.' && $time>0){
-			$result = date('Ymd', $time);
-			P2HFile::mkDir($result);
-			
-			$result = $result.'/';
-			
+		//如果php是index.php，那么静态页不需要放在日期文件夹里
+		if(self::phpName($url)!='index' && $time>0){
+			$result = date('Ymd', $time);			
+			$result = $result.'/';			
 		}
 		return $result;		
 	}
@@ -529,18 +558,16 @@ class P2HPath{
 	* 	相减再处理下就是当前目录相对根目录的距离 news和news/it
 	*/
 	public static function getRelativePath($url=''){
-		
 		$dir = self::dealDir($url);
-
 		if($dir=='.'){
 			$page = self::phpName($url);		
 		}else{
 			$page = $dir;
 		}
-
 		return $page;
 	}
 	
+	//	news/news
 	public static function dealDir($url=''){
 		$appPath = P2HConfig::get('appPath');
 		
@@ -555,10 +582,10 @@ class P2HPath{
 			$urlinfo = parse_url($url);
 			$url = $urlinfo['path'];
 		}
-		//D($url);
+		
 		$url = rtrim($url, '.php');
-		$dir = str_replace('./', '', $url);
-		$dir = str_replace('//', '', $dir);
+		$dir = str_replace(array('./', '//'), '', $url);
+		$dir = ltrim($dir, '/');
 		return $dir;
 	}
 	
@@ -570,7 +597,8 @@ class P2HPath{
 
 
 class P2H {
-	
+	private static $rwPath = '';
+	private static $rwURL = '';
 	/**
 	 * 私有化方法防止new和克隆静态类
 	 */
@@ -582,14 +610,17 @@ class P2H {
 	 * Init初始化 载入配置 检查更新 打开ob
 	 * 
 	 */
-	public static function init($date=0){
+	public static function init($time=0){
 		//D(self::$config);
 		//如果不静态化，返回
 		if(!P2HConfig::get('isStatic')){
 			return;
 		}
-	
-        self::checkUpdate();
+		
+		self::$rwPath = self::RWPath($time);
+		self::$rwURL = self::RWURL($time);
+		
+        self::checkUpdate($time);
                 
 		self::ob_end();
 		ob_start();
@@ -606,78 +637,16 @@ class P2H {
 	}
 	
 	
-	
-	/**
-	 * 生成静态
-	 * @return boolen
-	 */
-	public static function toHTML($url) {
-		if(!self::$isStatic || self::$req[self::NEWBORN]=='true') return;
-		$data = ob_get_contents();		
-		$data = self::insertBetween($data, self::loadScript($url), '</body>');
-		if(phpversion() >= '5.3') $data = self::minify($data);
-			
-		$flag = file_put_contents(self::$tplPath, $data);
-
-		unset($data);
-		self::ob_end();
-		//D(self::getVars());
-		if(!isset(self::$req[self::FROM]) && file_exists(self::$tplPath)) self::jump();
-		if($flag)
-			self::showStatus(array('status'=>1));
-		else self::showStatus(array('status'=>0));
-	}
-	
-	/**
-	 * 发送更新请求
-	 */
-	public static function update() {
-		if(!isset(self::$req[self::LOCATION]) || trim(self::$req[self::LOCATION])=='')
-			self::showStatus(array('status'=>'00'));
-		$ch = curl_init();
-		$url = str_replace(self::$rootURL, self::$updateURL, self::$req[self::LOCATION]);
-		$options = array(
-				CURLOPT_TIMEOUT=>30,
-				CURLOPT_URL=>$url,
-				CURLOPT_HEADER=>false,
-		);
-		
-		curl_setopt_array($ch, $options);
-
-		if(false===curl_exec($ch))
-			self::showStatus(array('status'=>'01', 'url'=>$url));
-			
-		curl_close($ch);
-	}
-	
-	private function showStatus($status) {	
-		echo self::$req['callback'].'('.json_encode($status),')';
-		exit;
-	}
-	
-	
-	
-	
-	
 	/**
 	 * 重写地址并生成伪静态文件
 	 * @param String $url
 	 */
 	public static function RW($url, $time=0) {
-	return;
-		if(!self::$isStatic) return $url;
+		if(!P2HConfig::get('isStatic')) return $url;
 		$rw = P2HPath::RWURL($url, $time);
-
-		if($rw['dir']){
-			$appPath=self::$appPath.$rw['dir']."/";
-		}else{
-			$appPath=self::$appPath;
-		}
-		$filename = str_replace($rw['root'], $appPath, $rw['url']);
-		//D($filename);
-		$flag = self::buildAjax($url, $filename);
-		if(false===$flag) self::debug('create ajax failed', __LINE__);
-		return $rw['url'];
+		$flag = self::buildAjax($url, $time);
+		if(false===$flag) P2HLog::write('create ajax failed');
+		return $rw;
 	}
 	
 	/**
@@ -685,7 +654,7 @@ class P2H {
 	 * @param String $url
 	 * @return String rwurl
 	 */
-	public static function RWURL($url='', $time=0) {
+	public static function RWURL($time=0, $url='') {
 		return P2HPath::RWURL($url, $time);
 	}
 	
@@ -731,33 +700,118 @@ class P2H {
 		return self::$rootURL.$dir.'.php'.$query;
 	}
 	
+	public static function RWPath($time=0, $url=''){
+		return P2HPath::RWPath($url, $time);
+	}
+	
+	/**
+	 * 生成静态
+	 * @return boolen
+	 */
+	public static function toHTML() {
+		if(!P2HConfig::get("isStatic")) return;
+		$data = ob_get_contents();
+		$data = self::insertBefore($data, self::loadScript(), '</head>');
 
+		//if(phpversion() >= '5.3') $data = self::minify($data);
+		$flag = file_put_contents(self::$rwPath, $data);
+
+		unset($data);
+		self::ob_end();
+		$req = P2HConfig::get('req');
+		$location = $req[P2HConfig::LOCATION];
+		$new = $req[P2HConfig::NEWBORN];
+
+		if(!isset($location) && !isset($new)){
+			self::jump();
+		}
+
+	}
+
+	/**
+	 * 检查静态页更新
+	 * 这个方法在init里头调用了, 所以不需要更新的时候要直接exit终止掉
+	 * 如果是php访问要直接跳转到静态页
+	 */
+	private function checkUpdate($time=0) {
+		$req = P2HConfig::get('req');
+		if(self::isTimeout($time)) {
+			return;
+		}elseif(isset($req[P2HConfig::LOCATION])){
+			exit;
+		}else self::jump();
+	}
+	
+	/**
+	 * 发送更新请求
+	 */
+	public static function update() {
+	//return;
+		$req = P2HConfig::get('req');
+		$location = urldecode($req[P2HConfig::LOCATION]);
+		self::showStatus(array('flag'=>$location));
+		if(!isset($location) || trim($location)==''){
+			$flag = P2HConfig::FAIL;
+			exit;
+		}
+			
+		$ch = curl_init();
+		$options = array(
+				CURLOPT_TIMEOUT=>30,
+				CURLOPT_URL=>$location,
+				CURLOPT_HEADER=>false,
+		);
+		
+		curl_setopt_array($ch, $options);
+
+		if(false===curl_exec($ch)){
+			$flag = P2HConfig::FAIL;
+		}else{
+			$flag = P2HConfig::SUCCESS;			
+		}
+		
+		
+		curl_close($ch);
+		
+	}
+	
+	private function showStatus($status) {
+		$req = P2HConfig::get('req');
+		echo $req['callback'].'('.json_encode($status).')';
+		exit;
+	}
+	
 	/**
 	 * 生成带有ajax请求的伪静态文件
 	 * @param String $url
 	 * @param String $filename
 	 */
-	private function buildAjax($url, $filename) {
-		if(is_file($filename)) return;
-		$dq = self::dq($url);
-		$dirs = explode('/', $dq['dir']);
-		$dir = $dirs[0];
-		$query = $dq['query'];
+	private function buildAjax($url, $time){
+		$rwPath = self::RWPath($time, $url);
+			
+		if(is_file($rwPath)) return;
 		
-		//self::mkHtmlDir($url);
+		$args = P2HPath::getArgs($url);
+		
+		$querys = self::buildQuery($args).'&'.P2HConfig::NEWBORN.'=true' ;
+
+		$search = array('@JQURL@', '@ROOTURL@', '@QUERY@');
+		
+		$replace = array(P2HConfig::get('jqueryURL'), P2HPath::getRootURL($url).P2HPath::phpName($url).'.php', $querys);
+		$tpl = str_replace($search, $replace, P2HConfig::get('ajaxTpl'));
+		return file_put_contents($rwPath, $tpl);
+	}
+	
+	private static function buildQuery($args){
 		$querys = '';
-		if(is_array($query) && !empty($query)) {
-			foreach(self::$pageInfo[$dir]['args'] as $k=>$v) {
-				if(isset($query[$v]))	$querys .= "{$v}={$query[$v]}&";
+		if(is_array($args) && !empty($args)) {
+			foreach($args as $k=>$v) {
+				$querys .= "{$k}={$v}&";
 			}
 		}
-
-		$updateURL = self::$updateURL.$dir.'.php';
-		$rootURL = self::$rootURL.$dir.'.php';
-		$search = array('@JQURL@', '@URL@', '@QUERY@');
-		$replace = array(self::$jqueryURL, $updateURL, $querys.self::FRESH."=true");
-		$tpl = str_replace($search, $replace, self::$ajaxTpl);
-		return file_put_contents($filename, $tpl);
+		$querys = rtrim($querys, '&');
+		
+		return $querys;
 	}
 	
 	/**
@@ -766,9 +820,9 @@ class P2H {
 	 * @param String $insert
 	 * @param String $delimiter
 	 */
-	private function insertBetween($data, $insert, $delimiter = '</body>') {
+	private function insertBefore($data, $insert, $delimiter = '</body>') {
 		if(strpos($data, $delimiter)===false)
-			self::debug("delimiter not found in html, can not insert ajax behind your defined delimiter ");
+			P2HLog::write("delimiter not found in html, can not insert ajax behind your defined delimiter ");
 		
 		$tpls = explode($delimiter, $data);
 		return $tpls[0].$insert.$delimiter.$tpls[1];
@@ -781,15 +835,11 @@ class P2H {
 	 */
 	private function minify($data, $type = 'HTML') {
 		
-		if(!self::$minify) return $data;
+		if(!P2HConfig::get('minify')) return $data;
 		
 		$type = trim($type);
-		if(!in_array($type, array('HTML', 'JSMin')))
-			self::debug('unknown minify method', __LINE__);
-		
-		$filename = self::$p2hPath.'plugin/'.$type.'.php';
-		if(file_exists($filename)) require_once $filename;
-		else self::debug($filename.' not exists');
+
+		require_once self::$p2hPath.'plugin/'.$type.'.php';
 
 		return $type::minify($data);
 		
@@ -799,20 +849,18 @@ class P2H {
 	 * 静态页是否超过有效期
 	 * @return boolen
 	 */
-	private function isTimeout() {
-	return;
-	//fresh=true时强制更新 firsttime代表页面是第一次生成 这两种情况都要生成静态页
-		if((isset(self::$req[self::FRESH]) && trim(self::$req[self::FRESH])==='true') ||
-		(isset(self::$req[self::FIRST_TIME]) && trim(self::$req[self::FIRST_TIME])==='true'))
+	private function isTimeout($time=0) {
+		//fresh=true时强制更新 NEWBORN代表页面是ajax伪静态文件 这两种情况都要生成静态页
+		$req = P2HConfig::get('req');
+		$fresh = $req[P2HConfig::FRESH];
+		$new = $req[P2HConfig::NEWBORN];
+		if(isset($fresh) || isset($new)){
 			return true;
+		}
 
-		//设置超时时间
-		if(isset(self::$pageInfo[self::$htmlDirName]) && isset(self::$pageInfo[self::$htmlDirName]['timeout'])) 
-			self::$timeout = intval(self::$pageInfo[self::$htmlDirName]['timeout']);
-			
-		$mtime = file_exists(self::$tplPath) ? filemtime(self::$tplPath) : 0;
-		//D(time() - $mtime);
-		if(time() - $mtime > self::$timeout) return true;
+		$timeout = P2HConfig::timeout();			
+		$mtime = file_exists(self::RWPath($time)) ? filemtime(self::RWPath($time)) : 0;
+		if(time() - $mtime > $timeout) return true;
 		
 		else return false;		
 	}
@@ -826,36 +874,23 @@ class P2H {
 			exit;
 	}
 	
-	/**
-	 * 检查静态页更新
-	 * 这个方法在init里头调用了, 所以不需要更新的时候要直接exit终止掉
-	 * 不然会一直走完整个php文件直到末尾的获得ob缓冲并重新生成静态
-	 */
-	private function checkUpdate() {
-	return;
-		if(self::isTimeout()) {
-			return;
-		}elseif(isset(self::$req[self::FROM]) && self::$req[self::FROM]=='html') {
-			exit;
-		}else self::jump();
-	}
+	
 	
 	/**
 	 * 跳转
 	 */
 	private function jump($url = '') {
 		if(trim($url)=='') {
-			$url = self::$tplURL;
+			$url = self::$rwURL;
 		}
 		
 		if(!headers_sent()) header('Location: '.$url);
 		else{
-			$js = <<<EOF
+			echo <<<EOF
 			<script type="text/javascript">
 				self.location="{$url}"
 			</script>
 EOF;
-			echo $js;
 		}
 		exit;
 	}
@@ -868,22 +903,20 @@ EOF;
 	}
 	
 	/**
-	 * 加载负责发出更新请求的JS
+	 * 加载发出更新请求的JS
 	 */
-	private function loadScript($url) {
-		if(!self::$isStatic) return;
-		
-		//更新静态页的JS, 模板是P2H.php同级目录下的P2H.JS
-		$filename = self::$p2hPath.'P2H.js';
-		if(!is_file($filename)) self::debug('can not find '.$filename, __LINE__);
+	private function loadScript() {
+		$filename = P2HConfig::get('p2hPath').DS.'updateHTML.js';
+		if(!is_file($filename)) P2HLog::write('can not find '.$filename);
 
 		$data = file_get_contents($filename);
-		if(empty($data)) self::$debug('P2H.js is empty');
-		
+		$args = self::buildQuery(P2HPath::getArgs());
+		if(!empty($args)) $args = '?'.$args;
+		$phpURL = P2HConfig::get('updateURL').P2HPath::phpName().'.php'.$args;
 		$search = array('@JQURL@', '@updateURL@', '@phpURL@');
-		$replace = array(self::$jqueryURL, self::$rootURL.'P2HUpdate.php', $url);
+		$replace = array(P2HConfig::get('jqueryURL'), P2HConfig::get('updateURL').'P2HUpdate.php', P2HConfig::LOCATION.'='.urlencode($phpURL));
 		$data = str_replace($search, $replace, $data);
-		if(phpversion() >= '5.3') $data = self::minify($data, 'JSMin');
+
 		return $data;
 	}
 	

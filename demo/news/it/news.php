@@ -1,7 +1,7 @@
 <?php
 require_once '../../bootstrap.php';
 
-P2H::init(); 
+P2H::init(time()); 
 
 $var = 'MEIZU MX2即将上市';
 
