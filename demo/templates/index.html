@@ -5,9 +5,9 @@ charset="utf-8">
 <p>这个时间被缓存住了<?php echo $time; ?></p>
 <p>可以刷新页面查看这里的时间有什么变化：</p>
 <p><?php echo $time; ?></p>
-<p><a href="<?php echo P2H::RW('./news/news.php?id=3&gid=1&pag=11', time()); ?>">news/news.php?id=3&gid=1&pag=11</a></p>
-<p><a href="<?php echo P2H::RW('./index.php'); ?>">index.php</a></p>
-<p><a href="<?php echo P2H::RW('./news/index.php?cid=3&pag=11'); ?>">news/index.php?cid=3&pag=11</a></p>
+<p><a href="<?php echo P2H::RW('news/news.php?id=3', time()); ?>">news/news.php?id=3&gid=1&pag=11</a></p>
+<p><a href="<?php echo P2H::RW('index.php'); ?>">index.php</a></p>
+<p><a href="<?php echo P2H::RW('news/index.php?cid=3&pag=11'); ?>">news/index.php?cid=3&pag=11</a></p>
 <p><a href="<?php echo P2H::RW('news/it/news.php?id=3&pag=0&cid=0&gid=2', time()); ?>">news/it/news.php?id=3&pag=0&cid=0&gid=2</a></p>
 </body>
 </html>

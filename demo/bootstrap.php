@@ -9,8 +9,9 @@
 	exit;
  }
 define('APP', dirname(__FILE__));
-define('ROOT', 'http://localhost/p2h_svn/demo/');
-define('NEWS_ROOT', 'http://localhost/p2h_svn/demo/news/');
+
+define('ROOT', 'http://localhost/web_3.0/PPL/bin/P2H/demo/');
+define('NEWS_ROOT', ROOT.'news/');
 define('IT_ROOT', NEWS_ROOT.'it/');
 define('DS', DIRECTORY_SEPARATOR);
 

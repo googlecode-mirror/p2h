@@ -2,6 +2,8 @@
 require_once './bootstrap.php';
 P2H::init();
 /*
+echo P2H::RW('news/news.php?id=3', time());exit;
+
 echo P2H::RW('news/it/news.php?id=3&pag=0&cid=0&gid=2', time());
 echo P2H::RW('./news/news.php?id=3&gid=1&pag=11', time());
 exit;

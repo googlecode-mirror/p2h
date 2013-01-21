@@ -1,7 +1,24 @@
 <?php
+/**
+ * Class Minify_HTML  
+ * @package Minify
+ */
+
+/**
+ * Compress HTML
+ *
+ * This is a heavy regex-based removal of whitespace, unnecessary comments and 
+ * tokens. IE conditional comments are preserved. There are also options to have
+ * STYLE and SCRIPT blocks compressed by callback functions. 
+ * 
+ * A test suite is available.
+ * 
+ * @package Minify
+ * @author Stephen Clay <steve@mrclay.org>
+ */
 class HTML {
 
-	/**
+    /**
      * "Minify" an HTML page
      *
      * @param string $html
@@ -20,7 +37,7 @@ class HTML {
      * @return string
      */
     public static function minify($html, $options = array()) {
-        $min = new Html($html, $options);
+        $min = new HTML($html, $options);
         return $min->process();
     }
     
@@ -226,7 +243,4 @@ class HTML {
     {
         return ($this->_isXhtml && preg_match('/(?:[<&]|\\-\\-|\\]\\]>)/', $str));
     }
- 
 }
-
-?>

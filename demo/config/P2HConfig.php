@@ -14,7 +14,7 @@ return array(
 		* 1开启调试并把错误打印在屏幕上
 		* 2开启调试并把错误保存在文件中
 		*/
-		'debug'=>1,
+		'debug'=>2,
 		
 		//项目路径
 		'appPath'=>APP,
@@ -24,7 +24,7 @@ return array(
 
 		//p2h路径
 		'p2hPath'=>dirname(APP),
-'updateURL'=>ROOT,
+		'updateURL'=>ROOT,
 		/**
 		 * 各页面的配置信息
 		* 如果不指定args 将不会按预期重写地址 而是返回index.html
@@ -45,7 +45,7 @@ return array(
 				// news/news.php
 				'news/news'=>array(
 						'timeout'=>500,
-						'args'=>array('id', 'pag'),
+						'args'=>array('id'),
 						'rootURL'=>NEWS_ROOT,
 				),
 				// news/it/index.php
@@ -56,10 +56,10 @@ return array(
 				),
 				// news/it/news.php
 				'news/it/news'=>array(
-						'timeout'=>500,
+						'timeout'=>60,
 						'args'=>array('id', 'cid', 'gid', 'pag' ),
 						'rootURL'=>IT_ROOT,
-			),
+				),
 				
 		),
 
@@ -71,7 +71,7 @@ return array(
 
 		//静态文件名的连接符号 默认为_
 		//'rwRule'=>'_',
-
+		'jqueryURL'=>'http://localhost/web_3.0/static/js/jquery.js',
 		//$_REQUEST数组
 		'req'=>$_REQUEST,
 
